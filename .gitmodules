@@ -1,0 +1,6 @@
+[submodule "common/T80"]
+	path = common/T80
+	url = https://github.com/teiram/T80.git
+[submodule "common/mist-modules"]
+	path = common/mist-modules
+	url = https://github.com/teiram/mist-modules.git

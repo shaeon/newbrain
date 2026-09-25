@@ -1,0 +1,35 @@
+# Ficheros comunes a todas las placas.
+#
+# Las rutas van con qip_path para que valgan desde cualquier proyecto: el de
+# la Calypso esta en la raiz y el de la SiDi en sidi/. El PLL y el .sdc NO
+# estan aqui, porque cambian con la placa: los pone cada .qsf.
+#
+# El core COP400 va como Verilog generado (rtl/t400_core.v); el VHDL de
+# common/T400 se conserva solo como referencia y por la licencia.
+set_global_assignment -name QIP_FILE [file join $::quartus(qip_path) common/mist-modules/mist.qip]
+set_global_assignment -name QIP_FILE [file join $::quartus(qip_path) common/T80/T80.qip]
+
+# Core NewBrain
+set_global_assignment -name SYSTEMVERILOG_FILE [file join $::quartus(qip_path) rtl/newbrain_top.sv]
+set_global_assignment -name VERILOG_FILE [file join $::quartus(qip_path) rtl/newbrain.v]
+set_global_assignment -name VERILOG_FILE [file join $::quartus(qip_path) rtl/newbrain_mem.v]
+set_global_assignment -name VERILOG_FILE [file join $::quartus(qip_path) rtl/newbrain_io.v]
+set_global_assignment -name VERILOG_FILE [file join $::quartus(qip_path) rtl/newbrain_powerup.v]
+set_global_assignment -name VERILOG_FILE [file join $::quartus(qip_path) rtl/newbrain_chargen.v]
+set_global_assignment -name VERILOG_FILE [file join $::quartus(qip_path) rtl/newbrain_clkmux.v]
+set_global_assignment -name VERILOG_FILE [file join $::quartus(qip_path) rtl/newbrain_sdram.v]
+set_global_assignment -name VERILOG_FILE [file join $::quartus(qip_path) rtl/newbrain_pager.v]
+set_global_assignment -name VERILOG_FILE [file join $::quartus(qip_path) rtl/newbrain_video.v]
+set_global_assignment -name VERILOG_FILE [file join $::quartus(qip_path) rtl/newbrain_cop_hle.v]
+set_global_assignment -name VERILOG_FILE [file join $::quartus(qip_path) rtl/newbrain_cop_mux.v]
+set_global_assignment -name VERILOG_FILE [file join $::quartus(qip_path) rtl/newbrain_vfd_espia.v]
+set_global_assignment -name VERILOG_FILE [file join $::quartus(qip_path) rtl/newbrain_lcd_i2c.v]
+set_global_assignment -name VERILOG_FILE [file join $::quartus(qip_path) rtl/newbrain_kbd.v]
+set_global_assignment -name VERILOG_FILE [file join $::quartus(qip_path) rtl/newbrain_ps2.v]
+set_global_assignment -name VERILOG_FILE [file join $::quartus(qip_path) rtl/newbrain_tape.v]
+set_global_assignment -name VERILOG_FILE [file join $::quartus(qip_path) rtl/newbrain_fdc.v]
+# uPD765 con imagenes EDSK, de gyurco/Amstrad_MiST, con la linea INT añadida
+set_global_assignment -name SYSTEMVERILOG_FILE [file join $::quartus(qip_path) rtl/u765/u765.sv]
+set_global_assignment -name VERILOG_FILE [file join $::quartus(qip_path) rtl/newbrain_cop_mem.v]
+set_global_assignment -name VERILOG_FILE [file join $::quartus(qip_path) rtl/newbrain_cop_real.v]
+set_global_assignment -name VERILOG_FILE [file join $::quartus(qip_path) rtl/t400_core.v]
