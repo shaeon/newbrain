@@ -124,9 +124,7 @@ This core stands on the work of many people. Thank you all.
 To the **Retro-Wiki FPGA-dev Team**, especially **Ron, Manuel (teiram), Somhi,
 Roderick, Rampa, Kyp and Benito**, for their help and patience.
 
-To **Turri (turri21)**, thanks for the Z80 CPU fix!
-
-To **Senhor**, thanks for the port!
+To **Turri (turri21)**, thanks for the Z80 CPU fix and for the port to Senhor!
 
 To **https://newbrainemu.eu/**, and especially to **CDesp**, for keeping the
 NewBrain alive and for all the knowledge collected there.
