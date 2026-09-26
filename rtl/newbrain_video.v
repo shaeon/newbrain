@@ -74,6 +74,7 @@ module newbrain_video #(
     output reg  [7:0]  G,
     output reg  [7:0]  B,
     output reg         hsync,
+    output reg         hsync_cs,      // hsync para el sincronismo compuesto
     output reg         vsync,
     output reg         hblank,
     output reg         vblank,
@@ -359,6 +360,17 @@ module newbrain_video #(
 
             hsync  <= (hn < h_sync);
             vsync  <= (vn < V_SYNC);
+
+            // Para el sincronismo compuesto, que mist_video forma como
+            // ~(hsync ^ vsync): durante la vsync el pulso va al FINAL de la
+            // linea. Asi el XOR da los pulsos anchos de PAL, con la muesca
+            // al final, y el flanco de bajada sigue cayendo al principio de
+            // cada linea. Con la hsync normal esos flancos llegaban 4,75 us
+            // tarde en las lineas de vsync y uno se perdia: el monitor
+            // contaba 311 lineas por trama y marcaba 50,29 Hz en vez de 50,08.
+            // La maquina real hacia el mismo XOR (un 74LS86), pero iba a una
+            // tele, que no se fija en eso.
+            hsync_cs <= (vn < V_SYNC) ? (hn >= h_total - h_sync) : (hn < h_sync);
             hblank <= hb_n;
             vblank <= vb_n;
 

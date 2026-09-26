@@ -70,6 +70,7 @@ module newbrain #(
     output wire [7:0]  vid_g,
     output wire [7:0]  vid_b,
     output wire        vid_hs,
+    output wire        vid_hs_cs,       // hsync para el sincronismo compuesto
     output wire        vid_vs,
     output wire        vid_hb,
     output wire        vid_vb,
@@ -634,7 +635,7 @@ module newbrain #(
         .ram_base(RAM_BASE),
         .cg_char(cg_char), .cg_line(cg_line), .cg_data(cg_data),
         .R(vid_r), .G(vid_g), .B(vid_b),
-        .hsync(vid_hs), .vsync(vid_vs),
+        .hsync(vid_hs), .hsync_cs(vid_hs_cs), .vsync(vid_vs),
         .hblank(vid_hb), .vblank(vid_vb),
         .vsync_pulse()
     );

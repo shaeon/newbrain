@@ -458,7 +458,7 @@ reg ce_pix;
 always @(posedge clk_pix) ce_pix <= ~ce_pix;   // 16 o 13,5 MHz
 
 wire [7:0] R, G, B;
-wire hs, vs, hblank, vblank;
+wire hs, hs_cs, vs, hblank, vblank;
 
 newbrain #(.CLK_HZ(32_000_000)) newbrain(
     .clk_sys(clk_sys),
@@ -506,7 +506,7 @@ newbrain #(.CLK_HZ(32_000_000)) newbrain(
     .cg_wr_en(cg_wr_en),
     .clk_pix(clk_pix), .ce_pix(ce_pix), .ancho(aspecto_wide),
     .vid_r(R), .vid_g(G), .vid_b(B),
-    .vid_hs(hs), .vid_vs(vs), .vid_hb(hblank), .vid_vb(vblank),
+    .vid_hs(hs), .vid_hs_cs(hs_cs), .vid_vs(vs), .vid_hb(hblank), .vid_vb(vblank),
     .ps2_key(ps2_key),
     .vfd_addr(),
     .vfd_data(),
@@ -694,6 +694,16 @@ always @* begin
     endcase
 end
 
+// Sincronismo compuesto a 15 kHz. mist_video lo forma como ~(hs ^ vs) cuando
+// el scandoubler esta desactivado y el OSD no pide H y V separadas (o hay
+// YPbPr). Para ese caso el generador da hs_cs, que en las lineas de vsync
+// lleva el pulso al final de la linea: asi el XOR sale con los pulsos anchos
+// de PAL y un flanco de bajada al principio de cada una de las 312 lineas.
+// Con la hsync normal se perdia un flanco por trama y el monitor contaba 311
+// (50,29 Hz). Ver doc/04-video.md. Con H y V separadas, y siempre a 31 kHz
+// (el scandoubler necesita la hsync de verdad), va la hsync normal.
+wire usa_csync = scandoubler_disable & (~no_csync | ypbpr);
+
 mist_video #(
     .COLOR_DEPTH(8),
     .SD_HCNT_WIDTH(11),
@@ -708,7 +718,7 @@ mist_video(
     .SPI_DI(SPI_DI),
     .R(R_mix), .G(G_mix), .B(B_mix),
     .HBlank(hblank), .VBlank(vblank),
-    .HSync(hs), .VSync(vs),
+    .HSync(usa_csync ? hs_cs : hs), .VSync(vs),
     .VGA_R(VGA_R), .VGA_G(VGA_G), .VGA_B(VGA_B),
     .VGA_VS(VGA_VS), .VGA_HS(VGA_HS),
     .ce_divider(3'd1),          // pixel = clk_pix / 2: 16 o 13,5 MHz

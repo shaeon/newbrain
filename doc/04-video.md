@@ -265,3 +265,33 @@ fila salia cortada o con su primera linea repetida.
 
 Al cambiar la opcion se pierde una trama como mucho, y el monitor puede
 tardar un momento en reengancharse.
+
+## Sincronismo compuesto a 15 kHz
+
+El core da la hsync y la vsync separadas. Cuando el OSD pide 15 kHz con
+sincronismo compuesto (scandoubler desactivado y sin `no_csync`), o YPbPr,
+`mist_video` lo forma como `~(hs ^ vs)` y lo saca por `VGA_HS`.
+
+Con la hsync normal, ese XOR invierte el pulso durante las 3 lineas de
+vsync: el flanco de bajada de esas lineas llega 4,75 us tarde (al final del
+pulso) y el de la linea 3 se pierde dentro del pulso ancho. Salen **311
+flancos por trama** en vez de 312, y un monitor que cuenta flancos marca
+15,64 kHz / 311 = **50,29 Hz** en vez de 50,08, y recibe un tiron de fase en
+cada trama.
+
+La maquina real hacia lo mismo (un 74LS86 con `HSYNC XOR VSYNC`, sin
+pulsos de igualacion), pero iba a una tele por video compuesto, que no se
+fija en eso.
+
+Ahora `newbrain_video` saca tambien `hsync_cs`: igual que `hsync` salvo en
+las lineas de vsync, donde el pulso va al **final** de la linea. El XOR de
+`mist_video` da entonces los pulsos anchos de PAL, con la muesca al final,
+y un flanco de bajada al principio de cada una de las 312 lineas. El top se
+la pasa a `mist_video` solo cuando este va a formar el compuesto; con H y V
+separadas, y siempre a 31 kHz (el scandoubler necesita la hsync de verdad),
+va la hsync normal. Como solo cambia en lineas en blanco, la imagen no se
+mueve.
+
+`tb_newbrain_video_sync.v` lo comprueba: 312 flancos de bajada por trama,
+todos a una linea exacta del anterior, 309 pulsos de hsync y 3 anchos.
+

@@ -11,9 +11,10 @@
 //              (puntos desde hsync y lineas desde vsync) y que la primera
 //              linea visible sea la linea 0 de la fila 0 con cualquier ajuste
 //              de centrado
-//   mist_video el sincronismo compuesto de VGA_HS: 308 pulsos cortos del ancho
-//              de hsync y 3 largos de vsync por trama, nada mas, y VGA_VS fijo
-//              a uno
+//   mist_video el sincronismo compuesto de VGA_HS: 312 flancos de bajada por
+//              trama, uno al principio de cada linea y todos a una linea
+//              exacta del anterior; 309 pulsos del ancho de hsync y 3 anchos
+//              de vsync, nada mas, y VGA_VS fijo a uno
 //
 // Cada linea visible se identifica por su primera celda: el generador de
 // caracteres de este banco devuelve {1, linea de celda, codigo[3:1], 0}, y la
@@ -47,7 +48,7 @@ module tb_newbrain_video_sync;
     wire [3:0]  cg_line;
     reg  [7:0]  cg_data;
     wire [7:0]  R, G, B;
-    wire hsync, vsync, hblank, vblank, vsync_pulse;
+    wire hsync, hsync_cs, vsync, hblank, vblank, vsync_pulse;
 
     integer errors = 0, avisos = 0;
     integer i;
@@ -89,12 +90,13 @@ module tb_newbrain_video_sync;
         .sd_dout(sd_dout), .sd_ack(sd_ack), .ram_base(24'd0),
         .cg_char(cg_char), .cg_line(cg_line), .cg_data(cg_data),
         .R(R), .G(G), .B(B),
-        .hsync(hsync), .vsync(vsync), .hblank(hblank), .vblank(vblank),
+        .hsync(hsync), .hsync_cs(hsync_cs), .vsync(vsync), .hblank(hblank), .vblank(vblank),
         .vsync_pulse(vsync_pulse)
     );
 
     // La misma cadena de salida que newbrain_top, con el scandoubler
     // desactivado y el sincronismo compuesto encendido: 15 kHz por SCART.
+    // En ese modo el top le pasa hsync_cs en vez de hsync.
     wire [5:0] VGA_R, VGA_G, VGA_B;
     wire       VGA_HS, VGA_VS;
     mist_video #(
@@ -107,7 +109,7 @@ module tb_newbrain_video_sync;
         .scandoubler_disable(1'b1), .no_csync(1'b0), .ypbpr(1'b0),
         .rotate(2'b00), .blend(1'b0),
         .R(R), .G(G), .B(B),
-        .HBlank(hblank), .VBlank(vblank), .HSync(hsync), .VSync(vsync),
+        .HBlank(hblank), .VBlank(vblank), .HSync(hsync_cs), .VSync(vsync),
         .osd_enable(),
         .VGA_R(VGA_R), .VGA_G(VGA_G), .VGA_B(VGA_B),
         .VGA_VS(VGA_VS), .VGA_HS(VGA_HS),
@@ -130,6 +132,8 @@ module tb_newbrain_video_sync;
     integer tramas = 0;
     integer cs_bajo = 0, cs_corto = 0, cs_largo = 0, cs_otro = 0, err_vgavs = 0;
     integer cs_otro_ancho = 0;
+    integer cs_flancos = 0, cs_desde = -1, err_cs_int = 0, cs_int_malo = 0;
+    integer f_cs_flancos, f_err_cs_int;
 
     // Contenido: la primera celda de cada linea visible
     integer cap_n = 8;
@@ -219,6 +223,8 @@ module tb_newbrain_video_sync;
             f_err_cont = err_cont; f_primer_fallo = primer_fallo;
             f_cs_corto = cs_corto; f_cs_largo = cs_largo; f_cs_otro = cs_otro;
             f_err_vgavs = err_vgavs;
+            f_cs_flancos = cs_flancos; f_err_cs_int = err_cs_int;
+            cs_flancos = 0; err_cs_int = 0;
             limpia_trama;
             cs_corto = 0; cs_largo = 0; cs_otro = 0; err_vgavs = 0;
             lin = 0;
@@ -244,6 +250,16 @@ module tb_newbrain_video_sync;
             cs_bajo = 0;
         end
         if (VGA_VS !== 1'b1) err_vgavs = err_vgavs + 1;
+        // Cada flanco de bajada marca el principio de una linea: tiene que
+        // haber uno por linea y todos a una linea exacta del anterior
+        if (cs_desde >= 0) cs_desde = cs_desde + 1;
+        if (!VGA_HS && cs_d) begin
+            if (cs_desde >= 0 && cs_desde != 2*H_TOT) begin
+                err_cs_int = err_cs_int + 1; cs_int_malo = cs_desde;
+            end
+            cs_desde = 0;
+            cs_flancos = cs_flancos + 1;
+        end
         cs_d = VGA_HS;
     end
 
@@ -272,9 +288,9 @@ module tb_newbrain_video_sync;
             // una trama para asentar el cambio y otra limpia para medir
             espera_tramas(3);
             e0 = errors;
-            $display("H %0d V %0d: linea %0d, hsync %0d, %0d lineas, vsync %0d lineas, %0d visibles, imagen en (%0d, %0d), csync %0d cortos %0d largos %0d otros",
+            $display("H %0d V %0d: linea %0d, hsync %0d, %0d lineas, vsync %0d lineas, %0d visibles, imagen en (%0d, %0d), csync %0d flancos, %0d cortos %0d largos %0d otros",
                      ho, vo, f_lmax, f_hswmax, f_lineas, f_lin_vs, f_vis_lin,
-                     f_h_ini, f_v_ini, f_cs_corto, f_cs_largo, f_cs_otro);
+                     f_h_ini, f_v_ini, f_cs_flancos, f_cs_corto, f_cs_largo, f_cs_otro);
             chk("linea de H_TOT puntos",        f_lmin == H_TOT && f_lmax == H_TOT);
             chk("hsync de H_SYNC puntos",       f_hswmin == H_SYNC && f_hswmax == H_SYNC);
             chk("312 lineas por trama",         f_lineas == V_TOT);
@@ -289,8 +305,12 @@ module tb_newbrain_video_sync;
             if (f_err_cont != 0)
                 $display("  FAIL contenido: %0d lineas mal, la primera %0s", f_err_cont, f_primer_fallo);
             if (f_err_cont != 0) errors = errors + 1;
-            chk("csync: 308 pulsos de hsync",   f_cs_corto == V_TOT - V_SYNC - 1);
-            chk("csync: 3 pulsos de vsync",     f_cs_largo == V_SYNC);
+            chk("csync: 309 pulsos de hsync",   f_cs_corto == V_TOT - V_SYNC);
+            chk("csync: 3 pulsos anchos de vsync", f_cs_largo == V_SYNC);
+            chk("csync: 312 flancos de bajada por trama", f_cs_flancos == V_TOT);
+            if (f_err_cs_int != 0)
+                $display("  FAIL csync: %0d flancos fuera de sitio (uno a %0d ciclos del anterior)", f_err_cs_int, cs_int_malo);
+            if (f_err_cs_int != 0) errors = errors + 1;
             if (f_cs_otro != 0)
                 $display("  FAIL csync: %0d pulsos de ancho raro (el ultimo, %0d ciclos)", f_cs_otro, cs_otro_ancho);
             if (f_cs_otro != 0) errors = errors + 1;
@@ -337,7 +357,7 @@ module tb_newbrain_video_sync;
                 h_ant = VGA_HS;
             end
             reset = 0;
-            if (flancos == 0) begin
+            if (flancos < 10) begin     // con sincronismo serian unos 20
                 $display("AVISO: con reset no sale sincronismo (%0d flancos en 10 lineas)", flancos);
                 avisos = avisos + 1;
             end
