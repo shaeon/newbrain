@@ -253,5 +253,15 @@ graficos) salen iguales y la linea dura lo mismo en los dos modos.
 `tb_newbrain_clkmux.v` hace 20 cambios de reloj y comprueba que no sale
 ningun pulso corto.
 
+`tb_newbrain_video_sync.v` (`make videosync`, con Verilator) mide la salida
+de 15 kHz: el generador mas `mist_video` con el scandoubler desactivado, en
+los dos modos y con varios ajustes de centrado. Comprueba duracion de linea
+y de hsync, 312 lineas, vsync de 3 lineas alineada con hsync, blanqueo,
+640x250 visibles, el sincronismo compuesto (308 pulsos de hsync y 3 de vsync
+por trama) y que la primera linea visible sea la linea 0 de la fila 0. Asi
+aparecio que el ajuste V centre movia la zona visible pero no el recorrido:
+las filas avanzaban desde `V_START` y no desde el comienzo ajustado, y cada
+fila salia cortada o con su primera linea repetida.
+
 Al cambiar la opcion se pierde una trama como mucho, y el monitor puede
 tardar un momento en reengancharse.

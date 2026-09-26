@@ -3,7 +3,7 @@
 #   make mem      -> solo un banco de pruebas
 RTL   := ../rtl
 IV    := iverilog -g2012 -Wall
-TESTS := mem powerup io kbd ps2 cop cintamux vfd lcd cinta fdc video sdram pager load cpumem copreal
+TESTS := mem powerup io kbd ps2 cop cintamux vfd lcd cinta fdc video videosync sdram pager load cpumem copreal
 
 all: $(TESTS) drivers
 
@@ -17,7 +17,7 @@ io:
 	@$(IV) -o build_io.vvp tb_newbrain_io.v $(RTL)/newbrain_io.v && vvp -n build_io.vvp
 
 clean:
-	@rm -f *.vvp *.vcd cinta_prueba.txt
+	@rm -rf *.vvp *.vcd cinta_prueba.txt build_vsync build_vsync_w
 
 .PHONY: all clean $(TESTS)
 
@@ -43,6 +43,20 @@ video:
 	@$(IV) -o build_video.vvp tb_newbrain_video.v $(RTL)/newbrain_video.v && vvp -n build_video.vvp
 	@$(IV) -P tb_newbrain_video.ANCHO=1 -o build_video_w.vvp tb_newbrain_video.v $(RTL)/newbrain_video.v && vvp -n build_video_w.vvp
 	@$(IV) -o build_clkmux.vvp tb_newbrain_clkmux.v $(RTL)/newbrain_clkmux.v && vvp -n build_clkmux.vvp
+
+# Sincronismos y lineas de la salida de 15 kHz: el generador mas mist_video
+# con el scandoubler desactivado, en Original y en Wide. Va con Verilator
+# porque Icarus no elabora mist-modules (parametros declarados despues de los
+# puertos que los usan). scandoubler_scaledepth_sim.v sustituye al original,
+# que Verilator rechaza por una rama muerta.
+VSYNC_SRC = tb_newbrain_video_sync.v $(RTL)/newbrain_video.v $(MM)/mist_video.v $(MM)/osd.v \
+            $(MM)/rgb2ypbpr.v $(MM)/video_cleaner.v $(MM)/cofi.sv \
+            $(filter-out %scandoubler_scaledepth.v,$(SD)) scandoubler_scaledepth_sim.v
+VL := verilator --binary --timing -Wno-fatal -Wno-lint -Wno-style --top-module tb_newbrain_video_sync
+
+videosync:
+	@$(VL) -Mdir build_vsync -o sim $(VSYNC_SRC) >/dev/null && build_vsync/sim
+	@$(VL) -GANCHO=1 -Mdir build_vsync_w -o sim $(VSYNC_SRC) >/dev/null && build_vsync_w/sim
 
 # Elaboracion del top completo contra los modulos reales de mist-modules.
 # El T80 (VHDL) y el PLL (IP de Altera) se sustituyen por stubs; el resto es

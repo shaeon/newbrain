@@ -17,3 +17,5 @@ test/*.vcd
 roms/*.rom
 roms/*.bin
 test/build_user_io_ps2.v
+test/build_vsync/
+test/build_vsync_w/

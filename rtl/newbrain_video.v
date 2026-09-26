@@ -367,7 +367,11 @@ module newbrain_video #(
             // buffer con la linea que toca pintar a continuacion.
             //--------------------------------------------------------------
             if (hcnt == hs_eff + H_ACTIVE) begin
-                if (vcnt >= V_START) begin
+                // Con vs_eff y no con V_START: si no, al mover la imagen con
+                // el ajuste vertical del OSD las filas empezaban a avanzar
+                // antes o despues de la primera linea visible, y cada fila
+                // salia cortada o con su primera linea repetida.
+                if (vcnt >= vs_eff) begin
                     if (gfx_mode) begin
                         line_base   <= line_base + {1'd0, len_ef};
                         primera_gfx <= 1'b0;
