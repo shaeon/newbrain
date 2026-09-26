@@ -25,11 +25,9 @@ set_input_delay -clock [get_clocks {sdram_clk}] -min 3.2 [get_ports SDRAM_DQ[*]]
 set_output_delay -clock [get_clocks {sdram_clk}] -max 1.5 [get_ports {SDRAM_D* SDRAM_A* SDRAM_BA* SDRAM_n* SDRAM_CKE}]
 set_output_delay -clock [get_clocks {sdram_clk}] -min -0.8 [get_ports {SDRAM_D* SDRAM_A* SDRAM_BA* SDRAM_n* SDRAM_CKE}]
 
-# Reloj de pixel: c2 (27 MHz, Wide) y c3 (32 MHz, Original) pasan por el
-# conmutador newbrain_clkmux y alimentan el barrido, el generador de
-# caracteres y mist_video. Con el sistema (c1 y sdram_clk) solo se comunican por
-# sincronizadores y memorias de doble reloj, y entre si no conviven nunca.
+# Reloj de pixel: c2 (27 MHz) alimenta el barrido, el generador de
+# caracteres y mist_video. Con el sistema (c1 y sdram_clk) solo se comunica
+# por sincronizadores y memorias de doble reloj. c3 ya no se usa.
 set_clock_groups -asynchronous \
     -group [get_clocks {pll|altpll_component|auto_generated|pll1|clk[1] sdram_clk}] \
-    -group [get_clocks {pll|altpll_component|auto_generated|pll1|clk[2]}] \
-    -group [get_clocks {pll|altpll_component|auto_generated|pll1|clk[3]}]
+    -group [get_clocks {pll|altpll_component|auto_generated|pll1|clk[2]}]

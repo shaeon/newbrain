@@ -25,15 +25,13 @@
 // fila r lleva el codigo 40h + 2*(r mod 8). El bit 0 va a cero para no
 // disparar la regla del descendente, y se usan celdas de 8 lineas.
 //
-// Se pasa en Original y en Wide (ANCHO=1), y en cada una con varios ajustes
-// de H centre y V centre del OSD.
+// Se pasa con varios ajustes de H centre y V centre del OSD. El reloj de
+// pixel va a 27/32 del de sistema, asincrono, como en la placa.
 //
 module tb_newbrain_video_sync;
-    parameter ANCHO = 0;
-
-    localparam H_TOT   = ANCHO ? 864 : 1024;
-    localparam H_SYNC  = ANCHO ? 64  : 76;
-    localparam H_START = ANCHO ? 144 : 230;
+    localparam H_TOT   = 864;
+    localparam H_SYNC  = 64;
+    localparam H_START = 144;
     localparam V_TOT   = 312;
     localparam V_SYNC  = 3;
     localparam V_START = 33;
@@ -65,7 +63,7 @@ module tb_newbrain_video_sync;
     always #5 clk = ~clk;
     reg clkp = 0;
     always #5.926 clkp = ~clkp;                     // 32/27 del periodo de clk
-    wire clk_pix = ANCHO ? clkp : clk;
+    wire clk_pix = clkp;
     always @(posedge clk_pix) ce_pix <= ~ce_pix;
 
     // Generador de caracteres: una lectura de latencia, como newbrain_chargen
@@ -90,7 +88,7 @@ module tb_newbrain_video_sync;
     end
 
     newbrain_video dut (
-        .clk(clk), .clk_pix(clk_pix), .ce_pix(ce_pix), .reset(reset), .ancho(ANCHO[0]),
+        .clk(clk), .clk_pix(clk_pix), .ce_pix(ce_pix), .reset(reset),
         .tv_enable_in(tv_enable), .h_off(h_off), .v_off(v_off),
         .tv_addr_in(tv_addr), .tvtl_in(tvtl),
         .sd_addr(sd_addr), .sd_rd(sd_rd),
@@ -458,10 +456,9 @@ module tb_newbrain_video_sync;
         end
 
         if (errors == 0) begin
-            if (ANCHO) $display("tb_newbrain_video_sync (Wide): OK%0s", avisos ? ", con avisos" : "");
-            else       $display("tb_newbrain_video_sync: OK%0s", avisos ? ", con avisos" : "");
+            $display("tb_newbrain_video_sync: OK%0s", avisos ? ", con avisos" : "");
         end else begin
-            $display("tb_newbrain_video_sync%0s: %0d FALLOS", ANCHO ? " (Wide)" : "", errors);
+            $display("tb_newbrain_video_sync: %0d FALLOS", errors);
             $fatal;
         end
         $finish;

@@ -174,7 +174,6 @@ parameter CONF_STR = {
     "OBD,H centre,0,+8,+16,+24,-32,-24,-16,-8;",
     "OEG,V centre,0,+2,+4,+6,-8,-6,-4,-2;",
     "OIJ,Monitor,White,Green,Amber,Cyan;",
-    "OK,Aspect,Original,Wide;",
     "OMN,I2C LCD address,27h,3Fh,20h,38h;",
     "OH,Tape monitor,No,Yes;",
     "OP,Test tone,No,Yes;",
@@ -186,20 +185,20 @@ parameter CONF_STR = {
 };
 
 /////////////////  RELOJES  ///////////////////////
-// 12 MHz -> 32 MHz. El Z80 va a 32/8 = 4,000 MHz y el punto de video a
-// 32/2 = 16 MHz, igual que el cristal de 16 MHz de la maquina real.
+// El sistema va a 32 MHz y el Z80 a 32/8 = 4,000 MHz, como en la maquina
+// real (cristal de 16 MHz / 4). El video, a 27 MHz: puntos de 13,5 MHz.
 wire clk_sys, clk_sdram, clk_27, clk_32v;
 wire pll_locked;
 
 // c1 es el reloj del sistema, y de el sale tambien el de la SDRAM (ver
-// sdramclk_ddr). c0 ya no se usa: se deja para no regenerar el PLL de cada
-// placa, y Quartus lo quita.
+// sdramclk_ddr). c2 es el reloj de pixel. c0 y c3 ya no se usan: se dejan
+// para no regenerar el PLL de cada placa, y Quartus los quita.
 pll pll(
     .inclk0(clk_entrada),       // 12 MHz Calypso, 27 SiDi, 50 Poseidon
     .c0(clk_sdram),     // sin usar
     .c1(clk_sys),       // 32 MHz
-    .c2(clk_27),        // 27 MHz: pixel en Wide
-    .c3(clk_32v),       // 32 MHz: pixel en Original
+    .c2(clk_27),        // 27 MHz: pixel
+    .c3(clk_32v),       // sin usar
     .locked(pll_locked)
 );
 
@@ -446,16 +445,13 @@ wire [1:0]  cass_motor;
 wire [127:0] vfd_texto;
 wire        cass_out, cass_grabando, cass_leyendo;
 
-// Reloj de pixel: 32 MHz (puntos de 16 MHz, como la maquina) o 27 MHz
-// (puntos de 13,5 MHz, que llenan el ancho como en los emuladores). Ver
-// doc/04-video.md
-wire aspecto_wide = status[20];
-wire clk_pix;
-newbrain_clkmux clkmux_pix (
-    .clk0(clk_32v), .clk1(clk_27), .sel(aspecto_wide), .clk_out(clk_pix)
-);
+// Reloj de pixel: 27 MHz, puntos de 13,5 MHz. La linea sigue durando 64 us
+// (864 puntos), y los 640 activos llenan el ancho como en los emuladores. Al
+// doblarse a 31 kHz es exactamente el 720x576 de 50 Hz, que los monitores
+// reconocen. Ver doc/04-video.md
+wire clk_pix = clk_27;
 reg ce_pix;
-always @(posedge clk_pix) ce_pix <= ~ce_pix;   // 16 o 13,5 MHz
+always @(posedge clk_pix) ce_pix <= ~ce_pix;   // 13,5 MHz
 
 wire [7:0] R, G, B;
 wire hs, hs_cs, vs, hblank, vblank;
@@ -504,7 +500,7 @@ newbrain #(.CLK_HZ(32_000_000)) newbrain(
     .cg_wr_addr(cg_wr_addr),
     .cg_wr_data(ioctl_dout),
     .cg_wr_en(cg_wr_en),
-    .clk_pix(clk_pix), .ce_pix(ce_pix), .ancho(aspecto_wide),
+    .clk_pix(clk_pix), .ce_pix(ce_pix),
     .vid_r(R), .vid_g(G), .vid_b(B),
     .vid_hs(hs), .vid_hs_cs(hs_cs), .vid_vs(vs), .vid_hb(hblank), .vid_vb(vblank),
     .ps2_key(ps2_key),
@@ -721,7 +717,7 @@ mist_video(
     .HSync(usa_csync ? hs_cs : hs), .VSync(vs),
     .VGA_R(VGA_R), .VGA_G(VGA_G), .VGA_B(VGA_B),
     .VGA_VS(VGA_VS), .VGA_HS(VGA_HS),
-    .ce_divider(3'd1),          // pixel = clk_pix / 2: 16 o 13,5 MHz
+    .ce_divider(3'd1),          // pixel = clk_pix / 2: 13,5 MHz
     .scandoubler_disable(scandoubler_disable),
     .no_csync(no_csync),
     .scanlines(status[5:4]),

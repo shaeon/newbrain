@@ -16,7 +16,6 @@ set_global_assignment -name VERILOG_FILE [file join $::quartus(qip_path) rtl/new
 set_global_assignment -name VERILOG_FILE [file join $::quartus(qip_path) rtl/newbrain_io.v]
 set_global_assignment -name VERILOG_FILE [file join $::quartus(qip_path) rtl/newbrain_powerup.v]
 set_global_assignment -name VERILOG_FILE [file join $::quartus(qip_path) rtl/newbrain_chargen.v]
-set_global_assignment -name VERILOG_FILE [file join $::quartus(qip_path) rtl/newbrain_clkmux.v]
 set_global_assignment -name VERILOG_FILE [file join $::quartus(qip_path) rtl/newbrain_sdram.v]
 set_global_assignment -name VERILOG_FILE [file join $::quartus(qip_path) rtl/newbrain_pager.v]
 set_global_assignment -name VERILOG_FILE [file join $::quartus(qip_path) rtl/newbrain_video.v]

@@ -2,12 +2,14 @@
 
 ## Temporizacion
 
-Deducida del cristal de 16 MHz y consistente con los 50 Hz nominales:
+La maquina, deducida del cristal de 16 MHz y consistente con los 50 Hz
+nominales, pinta con puntos de 16 MHz y 1024 por linea. El core usa puntos
+de 13,5 MHz (ver "Reloj de punto" mas abajo); el resto es igual:
 
 | | |
 |---|---|
-| Reloj de punto | 16 MHz |
-| Puntos por linea | 1024 |
+| Reloj de punto | 13,5 MHz (la maquina, 16 MHz) |
+| Puntos por linea | 864 (la maquina, 1024) |
 | Lineas por trama | 312 |
 | Frecuencia horizontal | 15,625 kHz |
 | Frecuencia vertical | 50,08 Hz |
@@ -204,7 +206,7 @@ byte precisamente por eso.
 `newbrain_video` ya saca `vsync_pulse` para colgarlo de la trama, que es casi
 con seguridad lo correcto.
 
-## Proporciones: opcion Aspect (Original / Wide)
+## Reloj de punto: 13,5 MHz
 
 El reloj de punto de la maquina es de 16 MHz (lleva un cristal de 16 MHz y
 el Z80 va a 16/4): 1024 puntos por linea de 64 us, 640 activos, que en 80
@@ -212,50 +214,49 @@ columnas ocupan 40 us de los ~52 visibles. Los emuladores (MAME y el de
 cdesp) pintan 640x250 sin bordes. Medido a tamaño real en una captura del
 emulador de cdesp: 7,85 px por caracter y 20 px por fila, o sea puntos de
 1 px de ancho y lineas de 2 px de alto (proporcion 2,04). En una foto del
-core, 9,6 px por caracter y 29 px por fila (2,42): cada fila un 19 % mas
-alta respecto al ancho.
+core con puntos de 16 MHz, 9,6 px por caracter y 29 px por fila (2,42): cada
+fila un 19 % mas alta respecto al ancho.
 
-La opcion **Aspect** del OSD elige el reloj de punto:
+El core usa puntos de **13,5 MHz**, 864 por linea: los mismos 64 us, las
+mismas 312 lineas y los mismos 50,08 Hz. Los 640 puntos ocupan 47,4 us y la
+proporcion pasa a 2,42 x 13,5/16 = 2,04, la del emulador. Hsync de 64
+puntos, zona activa desde el 144.
 
-- **Original:** 16 MHz, 1024 puntos por linea, como la maquina.
-- **Wide:** 13,5 MHz, 864 puntos por linea (los mismos 64 us; es el reloj
-  del video digital PAL, BT.601). Los 640 puntos ocupan 47,4 us y la
-  proporcion pasa de 2,42 a 2,42 x 13,5/16 = 2,04, la del emulador. La
-  zona activa se centra en el mismo instante de la linea (hsync 64 puntos,
-  comienzo en 144).
+Hubo una opcion **Aspect** en el OSD para elegir entre 16 MHz (Original) y
+13,5 MHz (Wide), con un conmutador de relojes (`newbrain_clkmux`). Se quito
+y quedo solo el de 13,5: es el reloj del video digital PAL (BT.601), y
+doblado a 31 kHz da exactamente el 720x576 de 50 Hz (864 puntos a 27 MHz,
+hsync de 64, las dos sincronias negativas), que los monitores automaticos
+reconocen y muestrean punto a punto. Con 1024 puntos, que no es ningun modo
+estandar, el monitor suponia otro reloj de muestreo y en 80 columnas algunos
+puntos salian mas estrechos.
 
 Como 13,5 MHz no sale de 32 con un divisor entero, el video tiene su propio
 reloj:
 
-- El PLL de cada placa da dos salidas nuevas: **c2 a 27 MHz** y **c3 a 32
-  MHz**. `newbrain_clkmux` elige una u otra sin glitches (cada reloj se
-  habilita solo con el otro ya deshabilitado, y en su flanco de bajada) y
-  el resultado es `clk_pix`; el punto es `clk_pix / 2`.
-- `newbrain_video` queda partido en dos dominios: el **relleno** del buffer
-  de linea va con el sistema (`clk`), contra la SDRAM, como antes; el
-  **barrido**, la lectura del buffer y la salida, con `clk_pix`. Se hablan
-  por el conmutador `fill_tog` (sincronizado en el sistema, que retiene la
-  base y el numero de palabras al verlo) y por el buffer de linea, que es
-  una memoria de doble reloj. `tvtl`, `tv_addr`, `tv_enable`, el reset y
-  la opcion pasan por dos biestables.
+- El PLL de cada placa da **c2 a 27 MHz**, que es `clk_pix`; el punto es
+  `clk_pix / 2`. La salida c3 (32 MHz, el pixel del modo Original) queda sin
+  usar.
+- `newbrain_video` va partido en dos dominios: el **relleno** del buffer de
+  linea va con el sistema (`clk`), contra la SDRAM; el **barrido**, la
+  lectura del buffer y la salida, con `clk_pix`. Se hablan por el
+  conmutador `fill_tog` (sincronizado en el sistema, que retiene la base y
+  el numero de palabras al verlo) y por el buffer de linea, que es una
+  memoria de doble reloj. `tvtl`, `tv_addr`, `tv_enable` y el reset pasan
+  por dos biestables.
 - El generador de caracteres se escribe con el sistema (carga de la ROM) y
   se lee con `clk_pix`. `mist_video` y el scandoubler van con `clk_pix`.
-- Tiempo: rellenar una linea de 80 columnas tarda unos 9 us; en Wide hay
-  casi 16 us entre el final de una linea activa y el comienzo de la
-  siguiente.
-- En el `.sdc` de cada placa: sistema (c0, c1), c2 y c3 son tres grupos
-  asincronos.
+- Tiempo: rellenar una linea de 80 columnas tarda unos 9 us, y hay casi
+  16 us entre el final de una linea activa y el comienzo de la siguiente.
+- En el `.sdc` de cada placa: el sistema (c1 y `sdram_clk`) y c2 son dos
+  grupos asincronos.
 
-Pruebas: `tb_newbrain_video.v` se pasa dos veces, en Original (los dos
-relojes iguales) y en Wide (pixel a 32/27 del sistema, asincronos): todas
-las comprobaciones de contenido (glifos, descendentes, terminadores,
-graficos) salen iguales y la linea dura lo mismo en los dos modos.
-`tb_newbrain_clkmux.v` hace 20 cambios de reloj y comprueba que no sale
-ningun pulso corto.
+Pruebas: `tb_newbrain_video.v` corre con el pixel a 32/27 del sistema,
+asincronos, como en la placa.
 
 `tb_newbrain_video_sync.v` (`make videosync`, con Verilator) mide la salida
-de 15 kHz: el generador mas `mist_video` con el scandoubler desactivado, en
-los dos modos y con varios ajustes de centrado. Comprueba duracion de linea
+de 15 kHz: el generador mas `mist_video` con el scandoubler desactivado,
+con varios ajustes de centrado. Comprueba duracion de linea
 y de hsync, 312 lineas, vsync de 3 lineas alineada con hsync, blanqueo,
 640x250 visibles, el sincronismo compuesto (308 pulsos de hsync y 3 de vsync
 por trama) y que la primera linea visible sea la linea 0 de la fila 0. Asi
@@ -303,7 +304,7 @@ demas cores de MiST. Antes salian a nivel alto, y eso tenia dos efectos:
 - el scandoubler de `mist_video` empieza la linea en el flanco de bajada de
   la hsync (`scandoubler_framing.v`), asi que tomaba el final del pulso por
   el principio de la linea. Funcionaba porque todo se desplazaba igual;
-- a 31 kHz el monitor recibia hsync y vsync positivas. El modo Wide, al
+- a 31 kHz el monitor recibia hsync y vsync positivas. La señal, al
   doblarse, es exactamente el 720x576 de 50 Hz (864 puntos a 27 MHz, hsync
   de 64), que va con las dos negativas, y los monitores automaticos usan la
   polaridad para reconocer el modo.

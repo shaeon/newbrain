@@ -43,7 +43,6 @@ El menu esta en ingles. Que es cada opcion:
 | RAM | 32K, 96K, 512K o 768K (mas de 32K pone el modulo de expansion) |
 | H centre / V centre | Centrado de la imagen |
 | Monitor | Color del fosforo: White, Green, Amber, Cyan |
-| Aspect | Original (puntos de 16 MHz, como la maquina, con bordes) o Wide (13,5 MHz, llena el ancho como los emuladores) |
 | I2C LCD address | Direccion de la pantalla LCD (27h, 3Fh, 20h, 38h) |
 | Tape monitor | Se oye la cinta por el altavoz |
 | Test tone | Tono de prueba del audio |

@@ -63,9 +63,8 @@ module newbrain #(
     output wire        SDRAM_CKE,
 
     // video
-    input  wire        clk_pix,         // reloj de pixel (32 o 27 MHz)
+    input  wire        clk_pix,         // reloj de pixel, 27 MHz
     input  wire        ce_pix,          // en clk_pix, uno de cada dos
-    input  wire        ancho,           // 1: aspecto Wide (13,5 MHz)
     output wire [7:0]  vid_r,
     output wire [7:0]  vid_g,
     output wire [7:0]  vid_b,
@@ -626,7 +625,6 @@ module newbrain #(
 
     newbrain_video video (
         .clk(clk_sys), .clk_pix(clk_pix), .ce_pix(ce_pix), .reset(reset),
-        .ancho(ancho),
         .tv_enable_in(tv_enable),
         .h_off(h_off), .v_off(v_off),
         .tv_addr_in(tv_addr), .tvtl_in(tvtl),

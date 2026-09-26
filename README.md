@@ -13,7 +13,7 @@ and boots BASIC and CP/M 2.2 from EDSK disk images.
 - **Real COP420**: the original COP ROM runs on a COP400 core and handles the
   keyboard, the 16-character display and the 50 Hz timer.
 - **Video**: 40 and 80 column text, pixel graphics, reverse video and the
-  256-character mode, with an OSD choice of phosphor colour and aspect.
+  256-character mode, with an OSD choice of phosphor colour.
 - **Tape**: `.bas`/`.bin` files from the OSD, or real audio on the audio
   input.
 - **Expansion Interface Module**: paged memory from 96K to 768K and the
@@ -56,9 +56,11 @@ and demodulates real tape audio.
 **Video.** The video generator walks the NewBrain's display file in RAM:
 text lines and the graphics area with its terminators, 40 or 80 columns, and
 the character generator ROM. A line buffer is filled from SDRAM in the system
-clock domain and scanned out in a separate pixel clock domain, so the dot
-clock can be the machine's 16 MHz (**Aspect: Original**) or 13.5 MHz, which
-fills a 4:3 screen as the emulators do (**Aspect: Wide**).
+clock domain and scanned out in a separate pixel clock domain. The dot clock
+is 13.5 MHz instead of the machine's 16 MHz: the line still lasts 64 us, the
+image fills a 4:3 screen as the emulators do, and the scandoubled 31 kHz
+output is exactly the standard 720x576 50 Hz timing, which monitors
+recognise.
 
 **Disk controller.** The NewBrain disk interface is a board with its own Z80,
 EPROMs, RAM and a NEC uPD765. The core emulates it as such: a second T80 runs

@@ -50,7 +50,7 @@ module tb_newbrain_cpumem;
         .SDRAM_A(A), .SDRAM_DQ(DQ), .SDRAM_DQML(DQML), .SDRAM_DQMH(DQMH),
         .SDRAM_nWE(nWE), .SDRAM_nCAS(nCAS), .SDRAM_nRAS(nRAS), .SDRAM_nCS(nCS),
         .SDRAM_BA(BA), .SDRAM_CKE(CKE),
-        .clk_pix(clk), .ce_pix(ce_pix), .ancho(1'b0),
+        .clk_pix(clk), .ce_pix(ce_pix),
         .vid_r(), .vid_g(), .vid_b(),
         .vid_hs(), .vid_vs(), .vid_hb(), .vid_vb(),
         .ps2_key(11'd0),

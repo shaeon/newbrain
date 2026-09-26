@@ -17,7 +17,7 @@ io:
 	@$(IV) -o build_io.vvp tb_newbrain_io.v $(RTL)/newbrain_io.v && vvp -n build_io.vvp
 
 clean:
-	@rm -rf *.vvp *.vcd cinta_prueba.txt build_vsync build_vsync_w
+	@rm -rf *.vvp *.vcd cinta_prueba.txt build_vsync
 
 .PHONY: all clean $(TESTS)
 
@@ -28,7 +28,7 @@ lint:
 	    t80pa_stub.v \
 	    $(RTL)/newbrain.v $(RTL)/newbrain_mem.v $(RTL)/newbrain_io.v \
 	    $(RTL)/newbrain_powerup.v \
-	    $(RTL)/newbrain_sdram.v $(RTL)/newbrain_pager.v $(RTL)/newbrain_cop_hle.v $(RTL)/newbrain_cop_mux.v $(RTL)/newbrain_vfd_espia.v $(RTL)/newbrain_kbd.v $(RTL)/newbrain_tape.v $(RTL)/newbrain_cop_mem.v $(RTL)/newbrain_cop_real.v $(RTL)/t400_core.v $(RTL)/newbrain_video.v $(RTL)/newbrain_chargen.v $(RTL)/newbrain_clkmux.v $(RTL)/newbrain_fdc.v u765_stub.v \
+	    $(RTL)/newbrain_sdram.v $(RTL)/newbrain_pager.v $(RTL)/newbrain_cop_hle.v $(RTL)/newbrain_cop_mux.v $(RTL)/newbrain_vfd_espia.v $(RTL)/newbrain_kbd.v $(RTL)/newbrain_tape.v $(RTL)/newbrain_cop_mem.v $(RTL)/newbrain_cop_real.v $(RTL)/t400_core.v $(RTL)/newbrain_video.v $(RTL)/newbrain_chargen.v  $(RTL)/newbrain_fdc.v u765_stub.v \
 	&& echo "lint: OK"
 
 .PHONY: lint
@@ -41,11 +41,9 @@ cop:
 
 video:
 	@$(IV) -o build_video.vvp tb_newbrain_video.v $(RTL)/newbrain_video.v && vvp -n build_video.vvp
-	@$(IV) -P tb_newbrain_video.ANCHO=1 -o build_video_w.vvp tb_newbrain_video.v $(RTL)/newbrain_video.v && vvp -n build_video_w.vvp
-	@$(IV) -o build_clkmux.vvp tb_newbrain_clkmux.v $(RTL)/newbrain_clkmux.v && vvp -n build_clkmux.vvp
 
 # Sincronismos y lineas de la salida de 15 kHz: el generador mas mist_video
-# con el scandoubler desactivado, en Original y en Wide. Va con Verilator
+# con el scandoubler desactivado, y la de 31 kHz. Va con Verilator
 # porque Icarus no elabora mist-modules (parametros declarados despues de los
 # puertos que los usan). scandoubler_scaledepth_sim.v sustituye al original,
 # que Verilator rechaza por una rama muerta.
@@ -56,7 +54,6 @@ VL := verilator --binary --timing -Wno-fatal -Wno-lint -Wno-style --top-module t
 
 videosync:
 	@$(VL) -Mdir build_vsync -o sim $(VSYNC_SRC) >/dev/null && build_vsync/sim
-	@$(VL) -GANCHO=1 -Mdir build_vsync_w -o sim $(VSYNC_SRC) >/dev/null && build_vsync_w/sim
 
 # Elaboracion del top completo contra los modulos reales de mist-modules.
 # El T80 (VHDL) y el PLL (IP de Altera) se sustituyen por stubs; el resto es
@@ -148,7 +145,7 @@ load:
 	@$(IV) -g2012 -o build_load.vvp -s tb_newbrain_load tb_newbrain_load.v \
 	    t80pa_stub.v sdram_model.v \
 	    $(RTL)/newbrain.v $(RTL)/newbrain_mem.v $(RTL)/newbrain_io.v \
-	    $(RTL)/newbrain_powerup.v $(RTL)/newbrain_chargen.v $(RTL)/newbrain_clkmux.v \
+	    $(RTL)/newbrain_powerup.v $(RTL)/newbrain_chargen.v \
 	    $(RTL)/newbrain_sdram.v $(RTL)/newbrain_pager.v $(RTL)/newbrain_video.v \
 	    $(RTL)/newbrain_cop_hle.v $(RTL)/newbrain_cop_mux.v $(RTL)/newbrain_vfd_espia.v $(RTL)/newbrain_kbd.v $(RTL)/newbrain_tape.v $(RTL)/newbrain_fdc.v u765_stub.v $(RTL)/newbrain_cop_mem.v $(RTL)/newbrain_cop_real.v $(RTL)/t400_core.v && vvp -n build_load.vvp
 
@@ -156,7 +153,7 @@ cpumem:
 	@$(IV) -g2012 -o build_cpumem.vvp -s tb_newbrain_cpumem tb_newbrain_cpumem.v \
 	    t80pa_bus.v sdram_model.v \
 	    $(RTL)/newbrain.v $(RTL)/newbrain_mem.v $(RTL)/newbrain_io.v \
-	    $(RTL)/newbrain_powerup.v $(RTL)/newbrain_chargen.v $(RTL)/newbrain_clkmux.v \
+	    $(RTL)/newbrain_powerup.v $(RTL)/newbrain_chargen.v \
 	    $(RTL)/newbrain_sdram.v $(RTL)/newbrain_pager.v $(RTL)/newbrain_video.v \
 	    $(RTL)/newbrain_cop_hle.v $(RTL)/newbrain_cop_mux.v $(RTL)/newbrain_vfd_espia.v $(RTL)/newbrain_kbd.v $(RTL)/newbrain_tape.v $(RTL)/newbrain_fdc.v u765_stub.v $(RTL)/newbrain_cop_mem.v $(RTL)/newbrain_cop_real.v $(RTL)/t400_core.v && vvp -n build_cpumem.vvp
 

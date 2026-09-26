@@ -12,8 +12,8 @@
 // ALTPLL; solo cambian la frecuencia de entrada, M/N y la familia. Si se
 // regenera con el asistente, hay que conservar el orden c0 = SDRAM,
 // c1 = sistema, que es el que espera el .sdc.
-//   c2  27 MHz: reloj de pixel en modo Wide (puntos de 13,5 MHz)
-//   c3  32 MHz: reloj de pixel en modo Original (puntos de 16 MHz)
+//   c2  27 MHz: reloj de pixel (puntos de 13,5 MHz)
+//   c3  32 MHz: sin usar (era el pixel del modo Original, ya quitado)
 `timescale 1 ps / 1 ps
 // synopsys translate_on
 module pll (

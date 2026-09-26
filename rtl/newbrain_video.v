@@ -1,9 +1,12 @@
 //============================================================================
 // NewBrain - generador de imagen
 //
-// Temporizacion, deducida del cristal de 16 MHz y confirmada por el Apendice F:
-//   punto 16 MHz, 1024 puntos por linea, 312 lineas
-//   -> 15,625 kHz horizontal, 50,08 Hz vertical, 640 puntos activos
+// Temporizacion. La maquina real (cristal de 16 MHz, Apendice F) pinta con
+// puntos de 16 MHz: 1024 por linea, 312 lineas, 15,625 kHz y 50,08 Hz. Aqui
+// el punto es de 13,5 MHz (reloj de pixel de 27): 864 por linea, los mismos
+// 64 us, las mismas 312 lineas y los mismos 50,08 Hz. Los 640 puntos activos
+// ocupan 47,4 us en vez de 40 y llenan el ancho como en los emuladores, y al
+// doblarse a 31 kHz la señal es exactamente el 720x576 de 50 Hz.
 //
 // Direccion de pantalla: la CPU escribe el puerto 09 con los 8 bits altos de
 // un contador de 9 bits en unidades de 64 bytes, y el puerto 08 pone el bit
@@ -35,10 +38,10 @@
 `default_nettype none
 
 module newbrain_video #(
-    parameter H_TOTAL  = 1024,
+    parameter H_TOTAL  = 864,
     parameter H_ACTIVE = 640,
-    parameter H_SYNC   = 76,
-    parameter [10:0] H_START = 230,
+    parameter H_SYNC   = 64,
+    parameter [10:0] H_START = 144,
     parameter V_TOTAL  = 312,
     parameter V_ACTIVE = 250,
     parameter V_SYNC   = 3,
@@ -48,9 +51,8 @@ module newbrain_video #(
 ) (
     input  wire        clk,           // sistema: relleno contra la SDRAM
     input  wire        clk_pix,       // pixel: barrido y salida
-    input  wire        ce_pix,        // en clk_pix: 16 MHz (Original) o 13,5 (Wide)
+    input  wire        ce_pix,        // en clk_pix: 13,5 MHz
     input  wire        reset,
-    input  wire        ancho,         // 1: Wide, linea de 864 puntos a 13,5 MHz
 
     input  wire        tv_enable_in,
     input  wire signed [7:0] h_off,   // centrado horizontal, en puntos
@@ -75,7 +77,7 @@ module newbrain_video #(
     output reg  [7:0]  B,
     // Sincronismos activos a nivel BAJO, como los de los demas cores y como
     // los espera mist_video: su scandoubler empieza la linea en el flanco de
-    // bajada de la hsync, y a 31 kHz el 720x576 de 50 Hz (el modo Wide) va
+    // bajada de la hsync, y a 31 kHz el 720x576 de 50 Hz va
     // con las dos negativas. Con los pulsos positivos el scandoubler tomaba
     // el final del pulso por el principio de la linea y el monitor recibia
     // una polaridad que no es la del modo.
@@ -92,7 +94,7 @@ module newbrain_video #(
     //------------------------------------------------------------------
     // Dos dominios de reloj. El relleno del buffer de linea va con el
     // sistema (clk), que es el de la SDRAM; el barrido, con el reloj de pixel
-    // (clk_pix), que puede ser otro: 32 MHz en Original y 27 MHz en Wide.
+    // (clk_pix), a 27 MHz.
     // Se comunican por fill_tog (conmutador, sincronizado en clk) y por el
     // buffer de linea, que es una memoria de doble reloj. Los registros del
     // NewBrain que llegan aqui cambian muy de tarde en tarde y se pasan por
@@ -101,24 +103,19 @@ module newbrain_video #(
     reg [1:0]  rst_s;
     reg [7:0]  tvtl_1, tvtl;
     reg [15:0] tva_1, tv_addr;
-    reg [1:0]  ten_s, anc_s;
+    reg [1:0]  ten_s;
     always @(posedge clk_pix) begin
         rst_s  <= {rst_s[0], reset};
         tvtl_1 <= tvtl_in;  tvtl    <= tvtl_1;
         tva_1  <= tv_addr_in; tv_addr <= tva_1;
         ten_s  <= {ten_s[0], tv_enable_in};
-        anc_s  <= {anc_s[0], ancho};
     end
     wire reset_p   = rst_s[1];
     wire tv_enable = ten_s[1];
 
-    // Parametros de linea. Original: los del modulo (1024 a 16 MHz). Wide:
-    // 864 a 13,5 MHz, que son los mismos 64 us; los 640 puntos activos
-    // ocupan 47,4 us en vez de 40 y llenan el ancho como en los emuladores.
-    // La zona activa se centra en el mismo instante de la linea.
-    wire [10:0] h_total = anc_s[1] ? 11'd864 : H_TOTAL[10:0];
-    wire [10:0] h_sync  = anc_s[1] ? 11'd64  : H_SYNC[10:0];
-    wire [10:0] h_start = anc_s[1] ? 11'd144 : H_START;
+    wire [10:0] h_total = H_TOTAL[10:0];
+    wire [10:0] h_sync  = H_SYNC[10:0];
+    wire [10:0] h_start = H_START;
 
     wire rev_all  = tvtl[0];
     wire full_set = tvtl[1];
