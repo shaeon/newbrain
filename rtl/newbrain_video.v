@@ -73,6 +73,12 @@ module newbrain_video #(
     output reg  [7:0]  R,
     output reg  [7:0]  G,
     output reg  [7:0]  B,
+    // Sincronismos activos a nivel BAJO, como los de los demas cores y como
+    // los espera mist_video: su scandoubler empieza la linea en el flanco de
+    // bajada de la hsync, y a 31 kHz el 720x576 de 50 Hz (el modo Wide) va
+    // con las dos negativas. Con los pulsos positivos el scandoubler tomaba
+    // el final del pulso por el principio de la linea y el monitor recibia
+    // una polaridad que no es la del modo.
     output reg         hsync,
     output reg         hsync_cs,      // hsync para el sincronismo compuesto
     output reg         vsync,
@@ -358,8 +364,8 @@ module newbrain_video #(
                 hcnt <= hcnt + 1'b1;
             end
 
-            hsync  <= (hn < h_sync);
-            vsync  <= (vn < V_SYNC);
+            hsync  <= ~(hn < h_sync);
+            vsync  <= ~(vn < V_SYNC);
 
             // Para el sincronismo compuesto, que mist_video forma como
             // ~(hsync ^ vsync): durante la vsync el pulso va al FINAL de la
@@ -370,7 +376,9 @@ module newbrain_video #(
             // contaba 311 lineas por trama y marcaba 50,29 Hz en vez de 50,08.
             // La maquina real hacia el mismo XOR (un 74LS86), pero iba a una
             // tele, que no se fija en eso.
-            hsync_cs <= (vn < V_SYNC) ? (hn >= h_total - h_sync) : (hn < h_sync);
+            // Con las dos a nivel bajo el XOR da lo mismo que con las dos a
+            // nivel alto.
+            hsync_cs <= ~((vn < V_SYNC) ? (hn >= h_total - h_sync) : (hn < h_sync));
             hblank <= hb_n;
             vblank <= vb_n;
 

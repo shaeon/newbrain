@@ -40,9 +40,9 @@ module tb_newbrain_video;
     // comprobar que la rafaga de relleno aguanta la latencia real.
     always @(posedge clk_pix) cg_data <= cg_char;
 
-    // periodo de linea, entre dos subidas de hsync
+    // periodo de linea, entre dos comienzos de hsync
     realtime t_hs = 0, t_linea = 0;
-    always @(posedge hsync) begin
+    always @(negedge hsync) begin     // hsync activa a nivel bajo
         if (t_hs > 0) t_linea = $realtime - t_hs;
         t_hs = $realtime;
     end   // patron = codigo de caracter

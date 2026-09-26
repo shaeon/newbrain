@@ -295,3 +295,20 @@ mueve.
 `tb_newbrain_video_sync.v` lo comprueba: 312 flancos de bajada por trama,
 todos a una linea exacta del anterior, 309 pulsos de hsync y 3 anchos.
 
+## Polaridad de los sincronismos
+
+`hsync`, `hsync_cs` y `vsync` salen **activos a nivel bajo**, como en los
+demas cores de MiST. Antes salian a nivel alto, y eso tenia dos efectos:
+
+- el scandoubler de `mist_video` empieza la linea en el flanco de bajada de
+  la hsync (`scandoubler_framing.v`), asi que tomaba el final del pulso por
+  el principio de la linea. Funcionaba porque todo se desplazaba igual;
+- a 31 kHz el monitor recibia hsync y vsync positivas. El modo Wide, al
+  doblarse, es exactamente el 720x576 de 50 Hz (864 puntos a 27 MHz, hsync
+  de 64), que va con las dos negativas, y los monitores automaticos usan la
+  polaridad para reconocer el modo.
+
+El sincronismo compuesto no cambia: el XOR da lo mismo con las dos
+invertidas. `tb_newbrain_video_sync.v` mide tambien la salida de 31 kHz:
+624 lineas, las dos sincronias en reposo a uno y la vsync de 6 lineas.
+

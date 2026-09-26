@@ -15,6 +15,10 @@
 //              trama, uno al principio de cada linea y todos a una linea
 //              exacta del anterior; 309 pulsos del ancho de hsync y 3 anchos
 //              de vsync, nada mas, y VGA_VS fijo a uno
+//   31 kHz     con el scandoubler: 624 lineas de media linea de 15 kHz,
+//              hsync y vsync negativas (en reposo a uno), la vsync de 6 lineas
+//
+// El generador saca los sincronismos a nivel bajo.
 //
 // Cada linea visible se identifica por su primera celda: el generador de
 // caracteres de este banco devuelve {1, linea de celda, codigo[3:1], 0}, y la
@@ -48,7 +52,10 @@ module tb_newbrain_video_sync;
     wire [3:0]  cg_line;
     reg  [7:0]  cg_data;
     wire [7:0]  R, G, B;
-    wire hsync, hsync_cs, vsync, hblank, vblank, vsync_pulse;
+    wire hsync_n, hsync_cs_n, vsync_n, hblank, vblank, vsync_pulse;
+    // El generador saca los sincronismos a nivel bajo; las medidas de abajo
+    // van sobre la version a nivel alto, que se lee mejor
+    wire hsync = ~hsync_n, vsync = ~vsync_n;
 
     integer errors = 0, avisos = 0;
     integer i;
@@ -90,7 +97,7 @@ module tb_newbrain_video_sync;
         .sd_dout(sd_dout), .sd_ack(sd_ack), .ram_base(24'd0),
         .cg_char(cg_char), .cg_line(cg_line), .cg_data(cg_data),
         .R(R), .G(G), .B(B),
-        .hsync(hsync), .hsync_cs(hsync_cs), .vsync(vsync), .hblank(hblank), .vblank(vblank),
+        .hsync(hsync_n), .hsync_cs(hsync_cs_n), .vsync(vsync_n), .hblank(hblank), .vblank(vblank),
         .vsync_pulse(vsync_pulse)
     );
 
@@ -109,12 +116,86 @@ module tb_newbrain_video_sync;
         .scandoubler_disable(1'b1), .no_csync(1'b0), .ypbpr(1'b0),
         .rotate(2'b00), .blend(1'b0),
         .R(R), .G(G), .B(B),
-        .HBlank(hblank), .VBlank(vblank), .HSync(hsync_cs), .VSync(vsync),
+        .HBlank(hblank), .VBlank(vblank), .HSync(hsync_cs_n), .VSync(vsync_n),
         .osd_enable(),
         .VGA_R(VGA_R), .VGA_G(VGA_G), .VGA_B(VGA_B),
         .VGA_VS(VGA_VS), .VGA_HS(VGA_HS),
         .VGA_HB(), .VGA_VB(), .VGA_DE()
     );
+
+    // Y la de 31 kHz: scandoubler activo, H y V separadas y la hsync normal,
+    // que es lo que el top le pasa en ese modo
+    wire [5:0] SD_R, SD_G, SD_B;
+    wire       SD_HS, SD_VS;
+    mist_video #(
+        .COLOR_DEPTH(8), .SD_HCNT_WIDTH(11), .USE_BLANKS(1'b1),
+        .OSD_COLOR(3'b001), .OUT_COLOR_DEPTH(6), .BIG_OSD(1'b1))
+    mv31 (
+        .clk_sys(clk_pix),
+        .SPI_SCK(1'b0), .SPI_SS3(1'b1), .SPI_DI(1'b0),
+        .scanlines(2'b00), .ce_divider(3'd1),
+        .scandoubler_disable(1'b0), .no_csync(1'b0), .ypbpr(1'b0),
+        .rotate(2'b00), .blend(1'b0),
+        .R(R), .G(G), .B(B),
+        .HBlank(hblank), .VBlank(vblank), .HSync(hsync_n), .VSync(vsync_n),
+        .osd_enable(),
+        .VGA_R(SD_R), .VGA_G(SD_G), .VGA_B(SD_B),
+        .VGA_VS(SD_VS), .VGA_HS(SD_HS),
+        .VGA_HB(), .VGA_VB(), .VGA_DE()
+    );
+
+    // Polaridad a la salida del generador: tiempo que pasa cada una a uno
+    integer g_hs_alto = 0, g_vs_alto = 0, g_muestras = 0;
+    always @(posedge clk_pix) if (!reset && ce_pix) begin
+        g_muestras = g_muestras + 1;
+        if (hsync_n) g_hs_alto = g_hs_alto + 1;
+        if (vsync_n) g_vs_alto = g_vs_alto + 1;
+    end
+
+    //------------------------------------------------------------------
+    // Salida de 31 kHz, en ciclos de clk_pix: cada trama va de un flanco de
+    // bajada de SD_VS al siguiente
+    //------------------------------------------------------------------
+    integer d_px = 0, d_lin = 0, d_hsw = 0, d_vsl = 0, d_tramas = 0;
+    integer d_lmin, d_lmax, d_hswmin, d_hswmax, d_hs_alto = 0, d_vs_alto = 0, d_muestras = 0;
+    integer f_d_lin, f_d_lmin, f_d_lmax, f_d_hswmin, f_d_hswmax, f_d_vsl, f_d_hs_alto, f_d_vs_alto, f_d_muestras;
+    reg d_hs = 1, d_vs = 1, d_ok = 0;
+    task limpia_31;
+        begin
+            d_lin = 0; d_lmin = 99999; d_lmax = 0; d_hswmin = 99999; d_hswmax = 0;
+            d_vsl = 0; d_hs_alto = 0; d_vs_alto = 0; d_muestras = 0;
+        end
+    endtask
+    initial limpia_31;
+    always @(posedge clk_pix) if (!reset) begin
+        d_px = d_px + 1;
+        d_muestras = d_muestras + 1;
+        if (SD_HS) d_hs_alto = d_hs_alto + 1;
+        if (SD_VS) d_vs_alto = d_vs_alto + 1;
+        if (!SD_HS && d_hs) begin                  // comienzo de hsync
+            if (d_ok) begin
+                if (d_px < d_lmin) d_lmin = d_px;
+                if (d_px > d_lmax) d_lmax = d_px;
+            end
+            d_ok = 1; d_px = 0; d_lin = d_lin + 1;
+            if (!SD_VS && !d_vs) d_vsl = d_vsl + 1;
+        end
+        if (!SD_HS) d_hsw = d_hsw + 1;
+        if (SD_HS && !d_hs) begin
+            if (d_hsw < d_hswmin) d_hswmin = d_hsw;
+            if (d_hsw > d_hswmax) d_hswmax = d_hsw;
+            d_hsw = 0;
+        end
+        if (!SD_VS && d_vs) begin                  // comienzo de vsync
+            f_d_lin = d_lin; f_d_lmin = d_lmin; f_d_lmax = d_lmax;
+            f_d_hswmin = d_hswmin; f_d_hswmax = d_hswmax; f_d_vsl = d_vsl;
+            f_d_hs_alto = d_hs_alto; f_d_vs_alto = d_vs_alto; f_d_muestras = d_muestras;
+            limpia_31;
+            d_vsl = 1;
+            d_tramas = d_tramas + 1;
+        end
+        d_hs = SD_HS; d_vs = SD_VS;
+    end
 
     //------------------------------------------------------------------
     // Medidas sobre la salida del generador, en puntos (ce_pix). Cada
@@ -291,6 +372,8 @@ module tb_newbrain_video_sync;
             $display("H %0d V %0d: linea %0d, hsync %0d, %0d lineas, vsync %0d lineas, %0d visibles, imagen en (%0d, %0d), csync %0d flancos, %0d cortos %0d largos %0d otros",
                      ho, vo, f_lmax, f_hswmax, f_lineas, f_lin_vs, f_vis_lin,
                      f_h_ini, f_v_ini, f_cs_flancos, f_cs_corto, f_cs_largo, f_cs_otro);
+            chk("hsync del generador a nivel bajo (en reposo a uno)", g_hs_alto * 2 > g_muestras);
+            chk("vsync del generador a nivel bajo (en reposo a uno)", g_vs_alto * 2 > g_muestras);
             chk("linea de H_TOT puntos",        f_lmin == H_TOT && f_lmax == H_TOT);
             chk("hsync de H_SYNC puntos",       f_hswmin == H_SYNC && f_hswmax == H_SYNC);
             chk("312 lineas por trama",         f_lineas == V_TOT);
@@ -315,6 +398,17 @@ module tb_newbrain_video_sync;
                 $display("  FAIL csync: %0d pulsos de ancho raro (el ultimo, %0d ciclos)", f_cs_otro, cs_otro_ancho);
             if (f_cs_otro != 0) errors = errors + 1;
             chk("VGA_VS fijo a uno",            f_err_vgavs == 0);
+
+            // 31 kHz, con el scandoubler
+            $display("  31 kHz: %0d lineas, linea %0d-%0d ciclos, hsync %0d-%0d, vsync %0d lineas, hsync en reposo %0d%%, vsync %0d%%",
+                     f_d_lin, f_d_lmin, f_d_lmax, f_d_hswmin, f_d_hswmax, f_d_vsl,
+                     100 * f_d_hs_alto / f_d_muestras, 100 * f_d_vs_alto / f_d_muestras);
+            chk("31 kHz: 624 lineas por trama",  f_d_lin == 2*V_TOT);
+            chk("31 kHz: linea de media linea de 15 kHz", f_d_lmin == H_TOT && f_d_lmax == H_TOT);
+            chk("31 kHz: hsync de H_SYNC ciclos", f_d_hswmin >= H_SYNC - 1 && f_d_hswmax <= H_SYNC + 1);
+            chk("31 kHz: vsync de 6 lineas",     f_d_vsl == 2*V_SYNC);
+            chk("31 kHz: hsync negativa",        f_d_hs_alto * 2 > f_d_muestras);
+            chk("31 kHz: vsync negativa",        f_d_vs_alto * 2 > f_d_muestras);
         end
     endtask
 
