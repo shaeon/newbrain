@@ -154,12 +154,6 @@ wire TAPE_IN = AUDIO_IN;
 wire TAPE_IN = 1'b0;
 `endif
 
-// El reloj de la SDRAM sale de una salida propia del PLL, desfasada un cuarto
-// de periodo (-7800 ps a 32 MHz). Antes se generaba invirtiendo clk_sys por
-// la trama, que añade un retardo incontrolado entre la sintesis y el chip:
-// es la forma tipica de que la SDRAM funcione a ratos o no funcione.
-assign SDRAM_CLK = clk_sdram;
-
 `include "build_id.v"
 parameter CONF_STR = {
     "NEWBRAIN;;",
@@ -197,18 +191,58 @@ parameter CONF_STR = {
 wire clk_sys, clk_sdram, clk_27, clk_32v;
 wire pll_locked;
 
-// c0 es el reloj de la SDRAM y c1 el del sistema, no al reves: el .sdc
-// compartido de calypso-ports declara los retardos de la SDRAM contra
-// clk[0] y usa SDRAM_CLK como pata de referencia. Si SDRAM_CLK no sale de
-// clk[0], TimeQuest avisa de que la referencia no es valida y las rutas de
-// memoria se quedan sin restringir de verdad.
+// c1 es el reloj del sistema, y de el sale tambien el de la SDRAM (ver
+// sdramclk_ddr). c0 ya no se usa: se deja para no regenerar el PLL de cada
+// placa, y Quartus lo quita.
 pll pll(
     .inclk0(clk_entrada),       // 12 MHz Calypso, 27 SiDi, 50 Poseidon
-    .c0(clk_sdram),     // 32 MHz desfasado -7800 ps
+    .c0(clk_sdram),     // sin usar
     .c1(clk_sys),       // 32 MHz
     .c2(clk_27),        // 27 MHz: pixel en Wide
     .c3(clk_32v),       // 32 MHz: pixel en Original
     .locked(pll_locked)
+);
+
+// El reloj de la SDRAM es clk_sys invertido, sacado por un registro DDR del
+// propio pin (altddio_out): el nivel alto del reloj pone un 0 en la pata y
+// el bajo un 1. Asi sale por el mismo tipo de registro que las ordenes y los
+// datos, con retardos emparejados, y va adelantado medio periodo (15,6 ns).
+//
+// Antes salia de c0, una salida del PLL desfasada -7800 ps, por un camino
+// hasta la pata distinto del de los datos: llegaba ~3 ns tarde y la ventana
+// de lectura (el adelanto menos el acceso de la SDRAM) no cerraba timing en
+// la Calypso ni en la Poseidon. Y antes aun se invertia clk_sys por la trama,
+// que es peor: un retardo que no controla nadie. Ver doc/08-sdram.md
+`ifdef MIST
+localparam FAMILIA = "Cyclone III";
+`elsif SIDI
+localparam FAMILIA = "Cyclone IV E";
+`elsif POSEIDON
+localparam FAMILIA = "Cyclone IV GX";
+`else
+localparam FAMILIA = "Cyclone 10 LP";
+`endif
+
+altddio_out #(
+    .extend_oe_disable("OFF"),
+    .intended_device_family(FAMILIA),
+    .invert_output("OFF"),
+    .lpm_hint("UNUSED"),
+    .lpm_type("altddio_out"),
+    .oe_reg("UNREGISTERED"),
+    .power_up_high("OFF"),
+    .width(1)
+) sdramclk_ddr (
+    .datain_h(1'b0),
+    .datain_l(1'b1),
+    .outclock(clk_sys),
+    .dataout(SDRAM_CLK),
+    .aclr(1'b0),
+    .aset(1'b0),
+    .oe(1'b1),
+    .outclocken(1'b1),
+    .sclr(1'b0),
+    .sset(1'b0)
 );
 
 /////////////////  IO  ////////////////////////////

@@ -79,7 +79,7 @@ integration:
 	@# otro error: puertos que no existen, anchos, conexiones rotas.
 	@out=$$(iverilog -g2012 -o build_top.vvp -s newbrain_top \
 	    -DNO_DIRECT_UPLOAD=1 -DBIG_OSD=1 -DI2S_AUDIO=1 -DUSE_AUDIO_IN=1 -I. \
-	    t80pa_stub.v pll_stub.v u765_stub.v $(RTL)/*.v $(RTL)/*.sv \
+	    t80pa_stub.v pll_stub.v altddio_out_stub.v u765_stub.v $(RTL)/*.v $(RTL)/*.sv \
 	    $(MM)/user_io.v $(MM)/data_io.v $(MM)/mist_video.v $(MM)/osd.v \
 	    $(MM)/rgb2ypbpr.v $(MM)/video_cleaner.v $(MM)/cofi.sv $(MM)/i2s.v $(SD) \
 	    2>&1 | grep -viE "warning|infinite loop|always process|Elaboration failed|^\s*:"); \
@@ -87,7 +87,7 @@ integration:
 	 else echo "integration I2S: OK (sin errores de conexion)"; fi
 	@out=$$(iverilog -g2012 -o build_top_ds.vvp -s newbrain_top \
 	    -DNO_DIRECT_UPLOAD=1 -DBIG_OSD=1 -DDELTASIGMA_AUDIO=1 -DUSE_AUDIO_IN=1 -I. \
-	    t80pa_stub.v pll_stub.v dac_stub.v u765_stub.v $(RTL)/*.v $(RTL)/*.sv \
+	    t80pa_stub.v pll_stub.v altddio_out_stub.v dac_stub.v u765_stub.v $(RTL)/*.v $(RTL)/*.sv \
 	    $(MM)/user_io.v $(MM)/data_io.v $(MM)/mist_video.v $(MM)/osd.v \
 	    $(MM)/rgb2ypbpr.v $(MM)/video_cleaner.v $(MM)/cofi.sv $(SD) \
 	    2>&1 | grep -viE "warning|infinite loop|always process|Elaboration failed|^\s*:"); \
@@ -95,7 +95,7 @@ integration:
 	 else echo "integration sigma-delta: OK (sin errores de conexion)"; fi
 	@out=$$(iverilog -g2012 -o build_top_sidi.vvp -s newbrain_top \
 	    -DSIDI=1 -DNO_DIRECT_UPLOAD=1 -DBIG_OSD=1 -DDELTASIGMA_AUDIO=1 -DUSE_AUDIO_IN=1 -I. \
-	    t80pa_stub.v pll_stub.v dac_stub.v u765_stub.v $(RTL)/*.v $(RTL)/*.sv \
+	    t80pa_stub.v pll_stub.v altddio_out_stub.v dac_stub.v u765_stub.v $(RTL)/*.v $(RTL)/*.sv \
 	    $(MM)/user_io.v $(MM)/data_io.v $(MM)/mist_video.v $(MM)/osd.v \
 	    $(MM)/rgb2ypbpr.v $(MM)/video_cleaner.v $(MM)/cofi.sv $(SD) \
 	    2>&1 | grep -viE "warning|infinite loop|always process|Elaboration failed|^\s*:"); \
@@ -104,7 +104,7 @@ integration:
 	@python3 ../tools/nbpines.py ../rtl/newbrain_top.sv ../calypso/newbrain_calypso.qsf
 	@out=$$(iverilog -g2012 -o build_top_pos.vvp -s newbrain_top \
 	    -DPOSEIDON=1 -DNO_DIRECT_UPLOAD=1 -DBIG_OSD=1 -DI2S_AUDIO=1 -DUSE_AUDIO_IN=1 -I. \
-	    t80pa_stub.v pll_stub.v u765_stub.v $(RTL)/*.v $(RTL)/*.sv \
+	    t80pa_stub.v pll_stub.v altddio_out_stub.v u765_stub.v $(RTL)/*.v $(RTL)/*.sv \
 	    $(MM)/user_io.v $(MM)/data_io.v $(MM)/mist_video.v $(MM)/osd.v \
 	    $(MM)/rgb2ypbpr.v $(MM)/video_cleaner.v $(MM)/cofi.sv $(MM)/i2s.v $(SD) \
 	    2>&1 | grep -viE "warning|infinite loop|always process|Elaboration failed|^\s*:"); \
@@ -113,7 +113,7 @@ integration:
 	@out=$$(iverilog -g2012 -o build_top_ext.vvp -s newbrain_top \
 	    -DNB_SERIE=1 -DNB_REMOTE=1 -DNB_LCD=1 \
 	    -DNO_DIRECT_UPLOAD=1 -DBIG_OSD=1 -DI2S_AUDIO=1 -DUSE_AUDIO_IN=1 -I. \
-	    t80pa_stub.v pll_stub.v u765_stub.v $(RTL)/*.v $(RTL)/*.sv \
+	    t80pa_stub.v pll_stub.v altddio_out_stub.v u765_stub.v $(RTL)/*.v $(RTL)/*.sv \
 	    $(MM)/user_io.v $(MM)/data_io.v $(MM)/mist_video.v $(MM)/osd.v \
 	    $(MM)/rgb2ypbpr.v $(MM)/video_cleaner.v $(MM)/cofi.sv $(MM)/i2s.v $(SD) \
 	    2>&1 | grep -viE "warning|infinite loop|always process|Elaboration failed|^\s*:"); \
@@ -123,7 +123,7 @@ integration:
 	@python3 ../tools/nbpines.py ../rtl/newbrain_top.sv ../poseidon/newbrain_poseidon.qsf
 	@out=$$(iverilog -g2012 -o build_top_mist.vvp -s newbrain_top \
 	    -DMIST=1 -DNO_DIRECT_UPLOAD=1 -DBIG_OSD=1 -DDELTASIGMA_AUDIO=1 -I. \
-	    t80pa_stub.v pll_stub.v dac_stub.v u765_stub.v $(RTL)/*.v $(RTL)/*.sv \
+	    t80pa_stub.v pll_stub.v altddio_out_stub.v dac_stub.v u765_stub.v $(RTL)/*.v $(RTL)/*.sv \
 	    $(MM)/user_io.v $(MM)/data_io.v $(MM)/mist_video.v $(MM)/osd.v \
 	    $(MM)/rgb2ypbpr.v $(MM)/video_cleaner.v $(MM)/cofi.sv $(SD) \
 	    2>&1 | grep -viE "warning|infinite loop|always process|Elaboration failed|^\s*:"); \

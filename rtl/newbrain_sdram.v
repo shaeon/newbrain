@@ -83,6 +83,15 @@ module newbrain_sdram #(
     reg        dq_oe;
     assign SDRAM_DQ = dq_oe ? dq_out : 16'bZ;
 
+    // Lo que llega de la SDRAM se registra en cada ciclo sin nada delante,
+    // para que Quartus lo meta en el registro de entrada del propio pin
+    // (FAST_INPUT_REGISTER en el .qsf). El reloj de la SDRAM va adelantado
+    // 7,8 ns y el dato de CAS 2 se captura en el primer flanco del sistema
+    // tras salir: en ese margen no cabian ademas los ~2,8 ns desde el pin
+    // hasta un registro dentro de la logica, y el timing no cerraba.
+    reg [15:0] dq_in;
+    always @(posedge clk) dq_in <= SDRAM_DQ;
+
     localparam S_INIT = 3'd0, S_IDLE = 3'd1, S_ARB = 3'd2, S_ACT = 3'd3,
                S_RD   = 3'd4, S_WR   = 3'd5, S_REF = 3'd6;
 
@@ -244,13 +253,15 @@ module newbrain_sdram #(
             //--------------------------------------------------------------
             S_RD: begin
                 step <= step + 1'b1;
-                if (step == 5'd2) begin              // latencia CAS 2
+                // Latencia CAS 2: el dato entra en dq_in en el flanco de
+                // step 2 y se reparte en el siguiente
+                if (step == 5'd3) begin
                     if (req_is_a) begin
-                        a_dout <= SDRAM_DQ;
+                        a_dout <= dq_in;
                         a_ack  <= 1'b1;
                         a_hold <= 1'b0;
                     end else begin
-                        b_dout <= req_addr[0] ? SDRAM_DQ[15:8] : SDRAM_DQ[7:0];
+                        b_dout <= req_addr[0] ? dq_in[15:8] : dq_in[7:0];
                         b_ack  <= 1'b1;
                         b_hold <= 1'b0;
                     end

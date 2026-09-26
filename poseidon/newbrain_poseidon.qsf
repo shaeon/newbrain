@@ -291,3 +291,6 @@ set_location_assignment PLL_1 -to "pll:pll|altpll:altpll_component"
 #set_location_assignment PIN_xx -to LCD_SDA
 #set_instance_assignment -name WEAK_PULL_UP_RESISTOR ON -to LCD_SCL
 #set_instance_assignment -name WEAK_PULL_UP_RESISTOR ON -to LCD_SDA
+
+# El dato de la SDRAM se captura en el registro del pin: ver newbrain_sdram.v
+set_instance_assignment -name FAST_INPUT_REGISTER ON -to SDRAM_DQ[*]
