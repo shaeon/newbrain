@@ -154,12 +154,6 @@ wire TAPE_IN = AUDIO_IN;
 wire TAPE_IN = 1'b0;
 `endif
 
-// El reloj de la SDRAM sale de una salida propia del PLL, desfasada un cuarto
-// de periodo (-7800 ps a 32 MHz). Antes se generaba invirtiendo clk_sys por
-// la trama, que añade un retardo incontrolado entre la sintesis y el chip:
-// es la forma tipica de que la SDRAM funcione a ratos o no funcione.
-assign SDRAM_CLK = clk_sdram;
-
 `include "build_id.v"
 parameter CONF_STR = {
     "NEWBRAIN;;",
@@ -180,7 +174,6 @@ parameter CONF_STR = {
     "OBD,H centre,0,+8,+16,+24,-32,-24,-16,-8;",
     "OEG,V centre,0,+2,+4,+6,-8,-6,-4,-2;",
     "OIJ,Monitor,White,Green,Amber,Cyan;",
-    "OK,Aspect,Original,Wide;",
     "OMN,I2C LCD address,27h,3Fh,20h,38h;",
     "OH,Tape monitor,No,Yes;",
     "OP,Test tone,No,Yes;",
@@ -192,23 +185,63 @@ parameter CONF_STR = {
 };
 
 /////////////////  RELOJES  ///////////////////////
-// 12 MHz -> 32 MHz. El Z80 va a 32/8 = 4,000 MHz y el punto de video a
-// 32/2 = 16 MHz, igual que el cristal de 16 MHz de la maquina real.
+// El sistema va a 32 MHz y el Z80 a 32/8 = 4,000 MHz, como en la maquina
+// real (cristal de 16 MHz / 4). El video, a 27 MHz: puntos de 13,5 MHz.
 wire clk_sys, clk_sdram, clk_27, clk_32v;
 wire pll_locked;
 
-// c0 es el reloj de la SDRAM y c1 el del sistema, no al reves: el .sdc
-// compartido de calypso-ports declara los retardos de la SDRAM contra
-// clk[0] y usa SDRAM_CLK como pata de referencia. Si SDRAM_CLK no sale de
-// clk[0], TimeQuest avisa de que la referencia no es valida y las rutas de
-// memoria se quedan sin restringir de verdad.
+// c1 es el reloj del sistema, y de el sale tambien el de la SDRAM (ver
+// sdramclk_ddr). c2 es el reloj de pixel. c0 y c3 ya no se usan: se dejan
+// para no regenerar el PLL de cada placa, y Quartus los quita.
 pll pll(
     .inclk0(clk_entrada),       // 12 MHz Calypso, 27 SiDi, 50 Poseidon
-    .c0(clk_sdram),     // 32 MHz desfasado -7800 ps
+    .c0(clk_sdram),     // sin usar
     .c1(clk_sys),       // 32 MHz
-    .c2(clk_27),        // 27 MHz: pixel en Wide
-    .c3(clk_32v),       // 32 MHz: pixel en Original
+    .c2(clk_27),        // 27 MHz: pixel
+    .c3(clk_32v),       // sin usar
     .locked(pll_locked)
+);
+
+// El reloj de la SDRAM es clk_sys invertido, sacado por un registro DDR del
+// propio pin (altddio_out): el nivel alto del reloj pone un 0 en la pata y
+// el bajo un 1. Asi sale por el mismo tipo de registro que las ordenes y los
+// datos, con retardos emparejados, y va adelantado medio periodo (15,6 ns).
+//
+// Antes salia de c0, una salida del PLL desfasada -7800 ps, por un camino
+// hasta la pata distinto del de los datos: llegaba ~3 ns tarde y la ventana
+// de lectura (el adelanto menos el acceso de la SDRAM) no cerraba timing en
+// la Calypso ni en la Poseidon. Y antes aun se invertia clk_sys por la trama,
+// que es peor: un retardo que no controla nadie. Ver doc/08-sdram.md
+`ifdef MIST
+localparam FAMILIA = "Cyclone III";
+`elsif SIDI
+localparam FAMILIA = "Cyclone IV E";
+`elsif POSEIDON
+localparam FAMILIA = "Cyclone IV GX";
+`else
+localparam FAMILIA = "Cyclone 10 LP";
+`endif
+
+altddio_out #(
+    .extend_oe_disable("OFF"),
+    .intended_device_family(FAMILIA),
+    .invert_output("OFF"),
+    .lpm_hint("UNUSED"),
+    .lpm_type("altddio_out"),
+    .oe_reg("UNREGISTERED"),
+    .power_up_high("OFF"),
+    .width(1)
+) sdramclk_ddr (
+    .datain_h(1'b0),
+    .datain_l(1'b1),
+    .outclock(clk_sys),
+    .dataout(SDRAM_CLK),
+    .aclr(1'b0),
+    .aset(1'b0),
+    .oe(1'b1),
+    .outclocken(1'b1),
+    .sclr(1'b0),
+    .sset(1'b0)
 );
 
 /////////////////  IO  ////////////////////////////
@@ -412,19 +445,16 @@ wire [1:0]  cass_motor;
 wire [127:0] vfd_texto;
 wire        cass_out, cass_grabando, cass_leyendo;
 
-// Reloj de pixel: 32 MHz (puntos de 16 MHz, como la maquina) o 27 MHz
-// (puntos de 13,5 MHz, que llenan el ancho como en los emuladores). Ver
-// doc/04-video.md
-wire aspecto_wide = status[20];
-wire clk_pix;
-newbrain_clkmux clkmux_pix (
-    .clk0(clk_32v), .clk1(clk_27), .sel(aspecto_wide), .clk_out(clk_pix)
-);
+// Reloj de pixel: 27 MHz, puntos de 13,5 MHz. La linea sigue durando 64 us
+// (864 puntos), y los 640 activos llenan el ancho como en los emuladores. Al
+// doblarse a 31 kHz es exactamente el 720x576 de 50 Hz, que los monitores
+// reconocen. Ver doc/04-video.md
+wire clk_pix = clk_27;
 reg ce_pix;
-always @(posedge clk_pix) ce_pix <= ~ce_pix;   // 16 o 13,5 MHz
+always @(posedge clk_pix) ce_pix <= ~ce_pix;   // 13,5 MHz
 
 wire [7:0] R, G, B;
-wire hs, vs, hblank, vblank;
+wire hs, hs_cs, vs, hblank, vblank;
 
 newbrain #(.CLK_HZ(32_000_000)) newbrain(
     .clk_sys(clk_sys),
@@ -470,9 +500,9 @@ newbrain #(.CLK_HZ(32_000_000)) newbrain(
     .cg_wr_addr(cg_wr_addr),
     .cg_wr_data(ioctl_dout),
     .cg_wr_en(cg_wr_en),
-    .clk_pix(clk_pix), .ce_pix(ce_pix), .ancho(aspecto_wide),
+    .clk_pix(clk_pix), .ce_pix(ce_pix),
     .vid_r(R), .vid_g(G), .vid_b(B),
-    .vid_hs(hs), .vid_vs(vs), .vid_hb(hblank), .vid_vb(vblank),
+    .vid_hs(hs), .vid_hs_cs(hs_cs), .vid_vs(vs), .vid_hb(hblank), .vid_vb(vblank),
     .ps2_key(ps2_key),
     .vfd_addr(),
     .vfd_data(),
@@ -660,6 +690,16 @@ always @* begin
     endcase
 end
 
+// Sincronismo compuesto a 15 kHz. mist_video lo forma como ~(hs ^ vs) cuando
+// el scandoubler esta desactivado y el OSD no pide H y V separadas (o hay
+// YPbPr). Para ese caso el generador da hs_cs, que en las lineas de vsync
+// lleva el pulso al final de la linea: asi el XOR sale con los pulsos anchos
+// de PAL y un flanco de bajada al principio de cada una de las 312 lineas.
+// Con la hsync normal se perdia un flanco por trama y el monitor contaba 311
+// (50,29 Hz). Ver doc/04-video.md. Con H y V separadas, y siempre a 31 kHz
+// (el scandoubler necesita la hsync de verdad), va la hsync normal.
+wire usa_csync = scandoubler_disable & (~no_csync | ypbpr);
+
 mist_video #(
     .COLOR_DEPTH(8),
     .SD_HCNT_WIDTH(11),
@@ -674,10 +714,10 @@ mist_video(
     .SPI_DI(SPI_DI),
     .R(R_mix), .G(G_mix), .B(B_mix),
     .HBlank(hblank), .VBlank(vblank),
-    .HSync(hs), .VSync(vs),
+    .HSync(usa_csync ? hs_cs : hs), .VSync(vs),
     .VGA_R(VGA_R), .VGA_G(VGA_G), .VGA_B(VGA_B),
     .VGA_VS(VGA_VS), .VGA_HS(VGA_HS),
-    .ce_divider(3'd1),          // pixel = clk_pix / 2: 16 o 13,5 MHz
+    .ce_divider(3'd1),          // pixel = clk_pix / 2: 13,5 MHz
     .scandoubler_disable(scandoubler_disable),
     .no_csync(no_csync),
     .scanlines(status[5:4]),

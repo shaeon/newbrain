@@ -171,9 +171,9 @@ Grundy**. Funciona en su emulador, pero conviene contrastarlo.
 darla por hecha. Se podria dejar en el aire y ahorrar unos ciclos, pero
 complica el control y de momento no hace falta.
 
-**El desfase del reloj de la SDRAM** esta puesto en -7800 ps, un cuarto de
-periodo. Es el valor razonable de partida, pero el margen real solo lo
-confirma el hardware; si diera problemas, ahi es donde hay que tocar.
+**El reloj de la SDRAM** ya no sale del PLL con un desfase: es `clk_sys`
+invertido por un registro DDR del pin, ver la ultima seccion. El margen de
+Quartus es amplio, pero el real solo lo confirma el hardware.
 
 ## Tiempos de lectura y desfase del reloj de la SDRAM
 
@@ -196,3 +196,33 @@ Para ver estas rutas en Quartus (Timing Analyzer, tras Update Timing
 Netlist):
 
     report_timing -setup -npaths 40 -detail summary -to_clock {pll|altpll_component|auto_generated|pll1|clk[1]} -file fallos_clk1.txt
+
+## Reloj de la SDRAM por un registro DDR del pin
+
+Aun con -7800 ps la Calypso tampoco cumplia: -4,05 ns en las mismas rutas.
+El reloj de `c0` llega a la pata por un camino distinto del de los datos y
+las ordenes, y ese desfase (~3 ns) se comia la ventana. Guardar el dato en
+el registro del pin (`dq_in`, con `FAST_INPUT_REGISTER`, que antes no se
+podia aplicar porque habia un multiplexor delante) solo lo dejaba en
+-3,02 ns.
+
+Ahora `SDRAM_CLK` sale de un `altddio_out` (`sdramclk_ddr` en
+`newbrain_top.sv`) con `datain_h = 0` y `datain_l = 1` sobre `clk_sys`: es el
+reloj del sistema invertido, adelantado medio periodo (15,6 ns), y sale por
+un registro de pin como las ordenes y los datos, con retardos emparejados.
+Las ordenes siguen llegando a la SDRAM en el mismo ciclo, asi que la
+secuencia del controlador no cambia; solo el acuse de lectura sale un ciclo
+mas tarde, porque el dato pasa por `dq_in`. `c0` queda sin usar en todas las
+placas.
+
+En el `.sdc`, `sdram_clk` es un reloj generado de `clk[1]`, invertido, en la
+pata `SDRAM_CLK`, y los retardos de la memoria van contra el. Calypso, modelo
+lento a 85 grados:
+
+| Ruta | Antes | Ahora |
+|------|-------|-------|
+| `SDRAM_DQ` -> `dq_in`, setup | -4,05 ns | +4,77 ns |
+| `SDRAM_DQ` -> `dq_in`, hold | | +22,8 ns |
+| ordenes y datos -> SDRAM, setup | +19,98 ns | +13,5 ns |
+| ordenes y datos -> SDRAM, hold | | +14,7 ns |
+

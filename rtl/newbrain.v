@@ -63,13 +63,13 @@ module newbrain #(
     output wire        SDRAM_CKE,
 
     // video
-    input  wire        clk_pix,         // reloj de pixel (32 o 27 MHz)
+    input  wire        clk_pix,         // reloj de pixel, 27 MHz
     input  wire        ce_pix,          // en clk_pix, uno de cada dos
-    input  wire        ancho,           // 1: aspecto Wide (13,5 MHz)
     output wire [7:0]  vid_r,
     output wire [7:0]  vid_g,
     output wire [7:0]  vid_b,
     output wire        vid_hs,
+    output wire        vid_hs_cs,       // hsync para el sincronismo compuesto
     output wire        vid_vs,
     output wire        vid_hb,
     output wire        vid_vb,
@@ -625,7 +625,6 @@ module newbrain #(
 
     newbrain_video video (
         .clk(clk_sys), .clk_pix(clk_pix), .ce_pix(ce_pix), .reset(reset),
-        .ancho(ancho),
         .tv_enable_in(tv_enable),
         .h_off(h_off), .v_off(v_off),
         .tv_addr_in(tv_addr), .tvtl_in(tvtl),
@@ -634,7 +633,7 @@ module newbrain #(
         .ram_base(RAM_BASE),
         .cg_char(cg_char), .cg_line(cg_line), .cg_data(cg_data),
         .R(vid_r), .G(vid_g), .B(vid_b),
-        .hsync(vid_hs), .vsync(vid_vs),
+        .hsync(vid_hs), .hsync_cs(vid_hs_cs), .vsync(vid_vs),
         .hblank(vid_hb), .vblank(vid_vb),
         .vsync_pulse()
     );

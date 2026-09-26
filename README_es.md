@@ -14,8 +14,7 @@ EDSK.
 - **COP420 real**: la ROM original del COP corre en un núcleo COP400 y lleva
   el teclado, el display de 16 caracteres y el reloj de 50 Hz.
 - **Vídeo**: texto de 40 y 80 columnas, gráficos de puntos, vídeo inverso y
-  el modo de 256 caracteres, con color de fósforo y aspecto elegibles en el
-  OSD.
+  el modo de 256 caracteres, con color de fósforo elegible en el OSD.
 - **Cinta**: ficheros `.bas`/`.bin` desde el OSD, o audio real por la
   entrada de audio.
 - **Módulo de expansión**: memoria paginada de 96K a 768K y el sistema
@@ -62,9 +61,10 @@ ficheros desde el OSD y desmodula el audio de cintas reales.
 en la RAM: las líneas de texto y la zona gráfica con sus terminadores, 40 u 80
 columnas, y la ROM del generador de caracteres. Un buffer de línea se llena
 desde la SDRAM con el reloj del sistema y se pinta con un reloj de píxel
-aparte, así que el reloj de punto puede ser el de la máquina, 16 MHz
-(**Aspect: Original**), o 13,5 MHz, que llena una pantalla 4:3 como los
-emuladores (**Aspect: Wide**).
+aparte. El reloj de punto es de 13,5 MHz en vez de los 16 MHz de la máquina:
+la línea sigue durando 64 µs, la imagen llena una pantalla 4:3 como los
+emuladores, y la salida doblada a 31 kHz es exactamente la temporización
+estándar de 720x576 a 50 Hz, que los monitores reconocen.
 
 **Controladora de disco.** El interfaz de disco del NewBrain es una placa con
 su propio Z80, EPROMs, RAM y un NEC uPD765. El core la emula tal cual: un

@@ -3,7 +3,7 @@
 #   make mem      -> solo un banco de pruebas
 RTL   := ../rtl
 IV    := iverilog -g2012 -Wall
-TESTS := mem powerup io kbd ps2 cop cintamux vfd lcd cinta fdc video sdram pager load cpumem copreal
+TESTS := mem powerup io kbd ps2 cop cintamux vfd lcd cinta fdc video videosync sdram pager load cpumem copreal
 
 all: $(TESTS) drivers
 
@@ -17,7 +17,7 @@ io:
 	@$(IV) -o build_io.vvp tb_newbrain_io.v $(RTL)/newbrain_io.v && vvp -n build_io.vvp
 
 clean:
-	@rm -f *.vvp *.vcd cinta_prueba.txt
+	@rm -rf *.vvp *.vcd cinta_prueba.txt build_vsync
 
 .PHONY: all clean $(TESTS)
 
@@ -28,7 +28,7 @@ lint:
 	    t80pa_stub.v \
 	    $(RTL)/newbrain.v $(RTL)/newbrain_mem.v $(RTL)/newbrain_io.v \
 	    $(RTL)/newbrain_powerup.v \
-	    $(RTL)/newbrain_sdram.v $(RTL)/newbrain_pager.v $(RTL)/newbrain_cop_hle.v $(RTL)/newbrain_cop_mux.v $(RTL)/newbrain_vfd_espia.v $(RTL)/newbrain_kbd.v $(RTL)/newbrain_tape.v $(RTL)/newbrain_cop_mem.v $(RTL)/newbrain_cop_real.v $(RTL)/t400_core.v $(RTL)/newbrain_video.v $(RTL)/newbrain_chargen.v $(RTL)/newbrain_clkmux.v $(RTL)/newbrain_fdc.v u765_stub.v \
+	    $(RTL)/newbrain_sdram.v $(RTL)/newbrain_pager.v $(RTL)/newbrain_cop_hle.v $(RTL)/newbrain_cop_mux.v $(RTL)/newbrain_vfd_espia.v $(RTL)/newbrain_kbd.v $(RTL)/newbrain_tape.v $(RTL)/newbrain_cop_mem.v $(RTL)/newbrain_cop_real.v $(RTL)/t400_core.v $(RTL)/newbrain_video.v $(RTL)/newbrain_chargen.v  $(RTL)/newbrain_fdc.v u765_stub.v \
 	&& echo "lint: OK"
 
 .PHONY: lint
@@ -41,8 +41,19 @@ cop:
 
 video:
 	@$(IV) -o build_video.vvp tb_newbrain_video.v $(RTL)/newbrain_video.v && vvp -n build_video.vvp
-	@$(IV) -P tb_newbrain_video.ANCHO=1 -o build_video_w.vvp tb_newbrain_video.v $(RTL)/newbrain_video.v && vvp -n build_video_w.vvp
-	@$(IV) -o build_clkmux.vvp tb_newbrain_clkmux.v $(RTL)/newbrain_clkmux.v && vvp -n build_clkmux.vvp
+
+# Sincronismos y lineas de la salida de 15 kHz: el generador mas mist_video
+# con el scandoubler desactivado, y la de 31 kHz. Va con Verilator
+# porque Icarus no elabora mist-modules (parametros declarados despues de los
+# puertos que los usan). scandoubler_scaledepth_sim.v sustituye al original,
+# que Verilator rechaza por una rama muerta.
+VSYNC_SRC = tb_newbrain_video_sync.v $(RTL)/newbrain_video.v $(MM)/mist_video.v $(MM)/osd.v \
+            $(MM)/rgb2ypbpr.v $(MM)/video_cleaner.v $(MM)/cofi.sv \
+            $(filter-out %scandoubler_scaledepth.v,$(SD)) scandoubler_scaledepth_sim.v
+VL := verilator --binary --timing -Wno-fatal -Wno-lint -Wno-style --top-module tb_newbrain_video_sync
+
+videosync:
+	@$(VL) -Mdir build_vsync -o sim $(VSYNC_SRC) >/dev/null && build_vsync/sim
 
 # Elaboracion del top completo contra los modulos reales de mist-modules.
 # El T80 (VHDL) y el PLL (IP de Altera) se sustituyen por stubs; el resto es
@@ -65,7 +76,7 @@ integration:
 	@# otro error: puertos que no existen, anchos, conexiones rotas.
 	@out=$$(iverilog -g2012 -o build_top.vvp -s newbrain_top \
 	    -DNO_DIRECT_UPLOAD=1 -DBIG_OSD=1 -DI2S_AUDIO=1 -DUSE_AUDIO_IN=1 -I. \
-	    t80pa_stub.v pll_stub.v u765_stub.v $(RTL)/*.v $(RTL)/*.sv \
+	    t80pa_stub.v pll_stub.v altddio_out_stub.v u765_stub.v $(RTL)/*.v $(RTL)/*.sv \
 	    $(MM)/user_io.v $(MM)/data_io.v $(MM)/mist_video.v $(MM)/osd.v \
 	    $(MM)/rgb2ypbpr.v $(MM)/video_cleaner.v $(MM)/cofi.sv $(MM)/i2s.v $(SD) \
 	    2>&1 | grep -viE "warning|infinite loop|always process|Elaboration failed|^\s*:"); \
@@ -73,7 +84,7 @@ integration:
 	 else echo "integration I2S: OK (sin errores de conexion)"; fi
 	@out=$$(iverilog -g2012 -o build_top_ds.vvp -s newbrain_top \
 	    -DNO_DIRECT_UPLOAD=1 -DBIG_OSD=1 -DDELTASIGMA_AUDIO=1 -DUSE_AUDIO_IN=1 -I. \
-	    t80pa_stub.v pll_stub.v dac_stub.v u765_stub.v $(RTL)/*.v $(RTL)/*.sv \
+	    t80pa_stub.v pll_stub.v altddio_out_stub.v dac_stub.v u765_stub.v $(RTL)/*.v $(RTL)/*.sv \
 	    $(MM)/user_io.v $(MM)/data_io.v $(MM)/mist_video.v $(MM)/osd.v \
 	    $(MM)/rgb2ypbpr.v $(MM)/video_cleaner.v $(MM)/cofi.sv $(SD) \
 	    2>&1 | grep -viE "warning|infinite loop|always process|Elaboration failed|^\s*:"); \
@@ -81,7 +92,7 @@ integration:
 	 else echo "integration sigma-delta: OK (sin errores de conexion)"; fi
 	@out=$$(iverilog -g2012 -o build_top_sidi.vvp -s newbrain_top \
 	    -DSIDI=1 -DNO_DIRECT_UPLOAD=1 -DBIG_OSD=1 -DDELTASIGMA_AUDIO=1 -DUSE_AUDIO_IN=1 -I. \
-	    t80pa_stub.v pll_stub.v dac_stub.v u765_stub.v $(RTL)/*.v $(RTL)/*.sv \
+	    t80pa_stub.v pll_stub.v altddio_out_stub.v dac_stub.v u765_stub.v $(RTL)/*.v $(RTL)/*.sv \
 	    $(MM)/user_io.v $(MM)/data_io.v $(MM)/mist_video.v $(MM)/osd.v \
 	    $(MM)/rgb2ypbpr.v $(MM)/video_cleaner.v $(MM)/cofi.sv $(SD) \
 	    2>&1 | grep -viE "warning|infinite loop|always process|Elaboration failed|^\s*:"); \
@@ -90,7 +101,7 @@ integration:
 	@python3 ../tools/nbpines.py ../rtl/newbrain_top.sv ../calypso/newbrain_calypso.qsf
 	@out=$$(iverilog -g2012 -o build_top_pos.vvp -s newbrain_top \
 	    -DPOSEIDON=1 -DNO_DIRECT_UPLOAD=1 -DBIG_OSD=1 -DI2S_AUDIO=1 -DUSE_AUDIO_IN=1 -I. \
-	    t80pa_stub.v pll_stub.v u765_stub.v $(RTL)/*.v $(RTL)/*.sv \
+	    t80pa_stub.v pll_stub.v altddio_out_stub.v u765_stub.v $(RTL)/*.v $(RTL)/*.sv \
 	    $(MM)/user_io.v $(MM)/data_io.v $(MM)/mist_video.v $(MM)/osd.v \
 	    $(MM)/rgb2ypbpr.v $(MM)/video_cleaner.v $(MM)/cofi.sv $(MM)/i2s.v $(SD) \
 	    2>&1 | grep -viE "warning|infinite loop|always process|Elaboration failed|^\s*:"); \
@@ -99,7 +110,7 @@ integration:
 	@out=$$(iverilog -g2012 -o build_top_ext.vvp -s newbrain_top \
 	    -DNB_SERIE=1 -DNB_REMOTE=1 -DNB_LCD=1 \
 	    -DNO_DIRECT_UPLOAD=1 -DBIG_OSD=1 -DI2S_AUDIO=1 -DUSE_AUDIO_IN=1 -I. \
-	    t80pa_stub.v pll_stub.v u765_stub.v $(RTL)/*.v $(RTL)/*.sv \
+	    t80pa_stub.v pll_stub.v altddio_out_stub.v u765_stub.v $(RTL)/*.v $(RTL)/*.sv \
 	    $(MM)/user_io.v $(MM)/data_io.v $(MM)/mist_video.v $(MM)/osd.v \
 	    $(MM)/rgb2ypbpr.v $(MM)/video_cleaner.v $(MM)/cofi.sv $(MM)/i2s.v $(SD) \
 	    2>&1 | grep -viE "warning|infinite loop|always process|Elaboration failed|^\s*:"); \
@@ -109,7 +120,7 @@ integration:
 	@python3 ../tools/nbpines.py ../rtl/newbrain_top.sv ../poseidon/newbrain_poseidon.qsf
 	@out=$$(iverilog -g2012 -o build_top_mist.vvp -s newbrain_top \
 	    -DMIST=1 -DNO_DIRECT_UPLOAD=1 -DBIG_OSD=1 -DDELTASIGMA_AUDIO=1 -I. \
-	    t80pa_stub.v pll_stub.v dac_stub.v u765_stub.v $(RTL)/*.v $(RTL)/*.sv \
+	    t80pa_stub.v pll_stub.v altddio_out_stub.v dac_stub.v u765_stub.v $(RTL)/*.v $(RTL)/*.sv \
 	    $(MM)/user_io.v $(MM)/data_io.v $(MM)/mist_video.v $(MM)/osd.v \
 	    $(MM)/rgb2ypbpr.v $(MM)/video_cleaner.v $(MM)/cofi.sv $(SD) \
 	    2>&1 | grep -viE "warning|infinite loop|always process|Elaboration failed|^\s*:"); \
@@ -134,7 +145,7 @@ load:
 	@$(IV) -g2012 -o build_load.vvp -s tb_newbrain_load tb_newbrain_load.v \
 	    t80pa_stub.v sdram_model.v \
 	    $(RTL)/newbrain.v $(RTL)/newbrain_mem.v $(RTL)/newbrain_io.v \
-	    $(RTL)/newbrain_powerup.v $(RTL)/newbrain_chargen.v $(RTL)/newbrain_clkmux.v \
+	    $(RTL)/newbrain_powerup.v $(RTL)/newbrain_chargen.v \
 	    $(RTL)/newbrain_sdram.v $(RTL)/newbrain_pager.v $(RTL)/newbrain_video.v \
 	    $(RTL)/newbrain_cop_hle.v $(RTL)/newbrain_cop_mux.v $(RTL)/newbrain_vfd_espia.v $(RTL)/newbrain_kbd.v $(RTL)/newbrain_tape.v $(RTL)/newbrain_fdc.v u765_stub.v $(RTL)/newbrain_cop_mem.v $(RTL)/newbrain_cop_real.v $(RTL)/t400_core.v && vvp -n build_load.vvp
 
@@ -142,7 +153,7 @@ cpumem:
 	@$(IV) -g2012 -o build_cpumem.vvp -s tb_newbrain_cpumem tb_newbrain_cpumem.v \
 	    t80pa_bus.v sdram_model.v \
 	    $(RTL)/newbrain.v $(RTL)/newbrain_mem.v $(RTL)/newbrain_io.v \
-	    $(RTL)/newbrain_powerup.v $(RTL)/newbrain_chargen.v $(RTL)/newbrain_clkmux.v \
+	    $(RTL)/newbrain_powerup.v $(RTL)/newbrain_chargen.v \
 	    $(RTL)/newbrain_sdram.v $(RTL)/newbrain_pager.v $(RTL)/newbrain_video.v \
 	    $(RTL)/newbrain_cop_hle.v $(RTL)/newbrain_cop_mux.v $(RTL)/newbrain_vfd_espia.v $(RTL)/newbrain_kbd.v $(RTL)/newbrain_tape.v $(RTL)/newbrain_fdc.v u765_stub.v $(RTL)/newbrain_cop_mem.v $(RTL)/newbrain_cop_real.v $(RTL)/t400_core.v && vvp -n build_cpumem.vvp
 

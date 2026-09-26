@@ -8,8 +8,6 @@
 // deben reproducir los bits del byte leido de la RAM.
 //
 module tb_newbrain_video;
-    // ANCHO=1: modo Wide, con el pixel a su propio reloj (27/32 del sistema)
-    parameter ANCHO = 0;
     reg clk = 0, reset = 1, ce_pix = 0;
     reg [15:0] tv_addr = 16'h1000;
     reg [7:0]  tvtl = 8'h48;      // 80 columnas, 8 lineas por caracter
@@ -33,16 +31,16 @@ module tb_newbrain_video;
     always #5 clk = ~clk;
     reg clkp = 0;
     always #5.926 clkp = ~clkp;                     // 32/27 del periodo de clk
-    wire clk_pix = ANCHO ? clkp : clk;
+    wire clk_pix = clkp;                            // pixel a su propio reloj
     always @(posedge clk_pix) ce_pix <= ~ce_pix;
 
     // Modelo de SDRAM: sirve la palabra pedida varios ciclos despues, para
     // comprobar que la rafaga de relleno aguanta la latencia real.
     always @(posedge clk_pix) cg_data <= cg_char;
 
-    // periodo de linea, entre dos subidas de hsync
+    // periodo de linea, entre dos comienzos de hsync
     realtime t_hs = 0, t_linea = 0;
-    always @(posedge hsync) begin
+    always @(negedge hsync) begin     // hsync activa a nivel bajo
         if (t_hs > 0) t_linea = $realtime - t_hs;
         t_hs = $realtime;
     end   // patron = codigo de caracter
@@ -66,7 +64,7 @@ module tb_newbrain_video;
     end
 
     newbrain_video dut (
-        .clk(clk), .clk_pix(clk_pix), .ce_pix(ce_pix), .reset(reset), .ancho(ANCHO[0]),
+        .clk(clk), .clk_pix(clk_pix), .ce_pix(ce_pix), .reset(reset),
         .tv_enable_in(tv_enable), .h_off(8'sd0), .v_off(8'sd0), .tv_addr_in(tv_addr), .tvtl_in(tvtl),
         .sd_addr(sd_addr), .sd_rd(sd_rd),
         .sd_dout(sd_dout), .sd_ack(sd_ack), .ram_base(24'd0),
@@ -309,12 +307,11 @@ module tb_newbrain_video;
         chk("fin de pantalla: nada debajo", gval(4) == 8'h00 && gval(40) == 8'h00
                                          && gval1(4) == 8'h00 && gval1(40) == 8'h00);
 
-        // La linea dura lo mismo (64 us a escala) en los dos modos: 1024
-        // puntos a clk/2 en Original, 864 a clk_pix/2 en Wide
+        // La linea dura 64 us a escala: 864 puntos a clk_pix/2
         chk("periodo de linea", (t_linea > 20480*0.995) && (t_linea < 20480*1.005));
-        if (ANCHO) chk("linea de 864 puntos", dut.h_total == 11'd864);
+        chk("linea de 864 puntos", dut.h_total == 11'd864);
 
-        if (errors == 0) $display("tb_newbrain_video%s: OK (linea de %0.0f ns)", ANCHO ? " (Wide)" : "", t_linea);
+        if (errors == 0) $display("tb_newbrain_video: OK (linea de %0.0f ns)", t_linea);
         else begin $display("tb_newbrain_video: %0d FALLOS", errors); $fatal; end
         $finish;
     end
