@@ -82,8 +82,10 @@ module tb_newbrain_kbd;
         chk_key("7 -> 3", 1'b0, 8'h3D, 8'd3);
         // KTABLE[2] = 08, flecha izquierda
         chk_key("izquierda -> 2", 1'b1, 8'h6B, 8'd2);
-        // KTABLE[17] = 00, STOP
-        chk_key("Esc -> 17 (STOP)", 1'b0, 8'h76, 8'd17);
+        // KTABLE[17] = 00, STOP: tecla Fin
+        chk_key("Fin -> 17 (STOP)", 1'b1, 8'h69, 8'd17);
+        // KTABLE[1F] = 1B, ESCAPE: tecla Esc
+        chk_key("Esc -> 1F (ESCAPE)", 1'b0, 8'h76, 8'h1F);
 
         // --- modificadores ---
         press(1'b0, 8'h12);              // Shift
@@ -124,13 +126,13 @@ module tb_newbrain_kbd;
         release_key(1'b0, 8'h11);
 
         // --- STOP ---
-        press(1'b0, 8'h76);
+        press(1'b1, 8'h69);
         if (brk !== 1'b1) begin
-            $display("FAIL Esc deberia activar brk");
+            $display("FAIL Fin deberia activar brk");
             errors = errors + 1;
         end
         take;
-        release_key(1'b0, 8'h76);
+        release_key(1'b1, 8'h69);
         // la suelta de una pulsacion corta se aplaza hasta los 60 ms
         if (brk !== 1'b1) begin
             $display("FAIL una pulsacion corta deberia durar al menos 60 ms");

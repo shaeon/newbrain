@@ -72,11 +72,17 @@ module newbrain_kbd #(
                 8'h11: begin row = 4'd8;  col = 2'd1; end  // AltGr = VIDEO TEXT
                 8'h70: begin row = 4'd12; col = 2'd3; end  // Insert
                 8'h6C: begin row = 4'd14; col = 2'd3; end  // Inicio
+                8'h69: begin row = 4'd0;  col = 2'd1; end  // Fin = STOP
                 default: valid = 1'b0;
             endcase
         end else begin
             case (ps2_code)
-                8'h76: begin row = 4'd0;  col = 2'd1; end  // Esc = STOP
+                // Esc es la ESCAPE del NewBrain (fila 14, col 1: codigo 27 en
+                // la tabla de teclado de todas las ROMs). Mayusculas+ESCAPE
+                // sale del modo de Mayusculas+Flecha arriba, y CP/M la
+                // necesita. STOP va en Fin. MAME pone STOP en Esc y no tiene
+                // ESCAPE; asi empezo este core.
+                8'h76: begin row = 4'd14; col = 2'd1; end  // Esc = ESCAPE
                 8'h3C: begin row = 4'd2;  col = 2'd0; end  // U
                 8'h3E: begin row = 4'd2;  col = 2'd1; end  // 8
                 8'h3D: begin row = 4'd2;  col = 2'd2; end  // 7

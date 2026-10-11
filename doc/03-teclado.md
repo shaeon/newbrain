@@ -24,7 +24,7 @@ Filas, con el bit de cada tecla tal como lo cablea MAME:
 | 11 | D | - \\ | E | Z |
 | 12 | S | + ^ | W | INSERT |
 | 13 | A | NEW LINE | Q | K |
-| 14 | / ? | — | espacio | INICIO |
+| 14 | / ? | ESCAPE | espacio | INICIO |
 | 15 | SHIFT | GRAPHICS | REPEAT | CONTROL |
 
 Los modificadores son teclas normales de la matriz, en la fila 15.
@@ -109,7 +109,9 @@ es una eleccion nuestra y se puede cambiar sin tocar nada mas:
 
 | NewBrain | PC |
 |----------|-----|
-| STOP | Esc |
+| STOP | Fin (End) |
+| ESCAPE | Esc |
+| INSERT | Insertar |
 | NEW LINE | Intro |
 | `(` `[` | `[` |
 | `)` `]` | `]` |
@@ -119,8 +121,29 @@ es una eleccion nuestra y se puede cambiar sin tocar nada mas:
 | GRAPHICS | Alt |
 | REPEAT | Tab |
 | CONTROL | Ctrl |
-| INICIO | Inicio |
+| HOME | Inicio |
 
+
+### La tecla ESCAPE (antes faltaba)
+
+El NewBrain tiene una tecla ESCAPE, distinta de STOP, en la **fila 14,
+bit 1** (codigo 27 en la tabla de teclado de todas las ROMs: `KTABLE[1F]`).
+MAME no la tiene (deja esa posicion sin nombre y pone STOP en Esc), y este
+core lo heredo: la Esc del PC era STOP y no habia forma de pulsar ESCAPE.
+
+Hace falta para:
+
+- **Mayusculas+ESCAPE** (codigo 15): sale del modo de Mayusculas+Flecha
+  arriba (codigo 14), el que invierte las dos mitades del juego de
+  caracteres para escribir graficos desde el teclado (The NewBrain
+  Dissected, cap. 10; nota tecnica 13).
+- **CP/M**: ESC es el codigo 27, que usan WordStar y muchos programas.
+
+Ahora Esc es ESCAPE y STOP pasa a Fin, junto a Inicio (HOME) e Insertar
+(INSERT). Mayusculas+Fin es Mayusculas+STOP (interrumpir un programa).
+
+Un usuario lo reporto asi: "shift+esc should be pressed very fast to
+register". Con Esc en STOP, Mayusculas+Esc mandaba Mayusculas+STOP.
 
 ## De donde salen las teclas
 
